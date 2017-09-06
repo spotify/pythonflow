@@ -7,4 +7,4 @@ install:
   - pip install -e .
 script:
   - pylint pythonflow
-  - py.test --cov --cov-fail-under=100 --cov-report=term-missing
+  - py.test --cov pythonflow --cov-fail-under=100 --cov-report=term-missing
