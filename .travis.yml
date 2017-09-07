@@ -8,3 +8,22 @@ install:
 script:
   - make tests
   - make docs
+deploy:
+  - provider: pypi
+    distributions: sdist
+    server: https://testpypi.python.org/pypi
+    user: "tillahoffmann"
+    password:
+      secure: "DxBP1sjW/N4ZGqWw6L6KVUHoDsag0s5TfMyKXTh4Pw2Msv0xK/gXzWD9MDp0F1v56LWGqjSNKctYMQg1d0gey4yO8ZL6OS6jGEX3r+89Ey9LS/OQ+8SEoNrCvXly0PcqCgyEYAUdmWqsG6Ewp9LREs1aqUM9wB6KLLxJmVEeo+CepZQ0j1FiDZ1Iv+yQ5Y4dIO1KtEsTxxxC0ZO8RfHEQVIuUJqhnwMFhmVl7y5Cv+3VgkuRQ6As0tzbS6m5wP7cMExd3pft5BaU9FiF1r/VDcMrTAV9Hieaz7AKIuzJDaU6NcwSwHhVBFDb39alJ/+KFmhcd2JWG2ctjr5MfENxiZejgMZrv0WxvwUEAYaTzPNw4ctGjNK+cGn4XOYozLEsLTHlBeqdZ4/n6bHkn7N+eL7QywfC6AZrp0V6ERxWXL9orFAYNmGy+HQvr2CJ/g6/Rn71znCey4uBDGewHmnZUK9QWilcCFpXSQfALOZ1xcfds99Kbo2/j2ufjPihi7kOH7OXZjrVNokZT1+pilE7QiGFO02Z6t/uTTwYCbJhHkvfrV2lPEGIye5sX/XI+xcNqYQPQb8tsElKdjyc/id2VRL1PFcAv9RCCKe1TiihxmXIXn0N3rYNkq8V/Hmuh3QgTsL/71flY94Bp+wHKnnSTquWcjF4igOfASkemE6VtP8="
+    on:
+      branch: master
+      tags: false
+deploy:
+  - provider: pypi
+    distributions: sdist
+    user: "tillahoffmann"
+    password:
+      secure: "DxBP1sjW/N4ZGqWw6L6KVUHoDsag0s5TfMyKXTh4Pw2Msv0xK/gXzWD9MDp0F1v56LWGqjSNKctYMQg1d0gey4yO8ZL6OS6jGEX3r+89Ey9LS/OQ+8SEoNrCvXly0PcqCgyEYAUdmWqsG6Ewp9LREs1aqUM9wB6KLLxJmVEeo+CepZQ0j1FiDZ1Iv+yQ5Y4dIO1KtEsTxxxC0ZO8RfHEQVIuUJqhnwMFhmVl7y5Cv+3VgkuRQ6As0tzbS6m5wP7cMExd3pft5BaU9FiF1r/VDcMrTAV9Hieaz7AKIuzJDaU6NcwSwHhVBFDb39alJ/+KFmhcd2JWG2ctjr5MfENxiZejgMZrv0WxvwUEAYaTzPNw4ctGjNK+cGn4XOYozLEsLTHlBeqdZ4/n6bHkn7N+eL7QywfC6AZrp0V6ERxWXL9orFAYNmGy+HQvr2CJ/g6/Rn71znCey4uBDGewHmnZUK9QWilcCFpXSQfALOZ1xcfds99Kbo2/j2ufjPihi7kOH7OXZjrVNokZT1+pilE7QiGFO02Z6t/uTTwYCbJhHkvfrV2lPEGIye5sX/XI+xcNqYQPQb8tsElKdjyc/id2VRL1PFcAv9RCCKe1TiihxmXIXn0N3rYNkq8V/Hmuh3QgTsL/71flY94Bp+wHKnnSTquWcjF4igOfASkemE6VtP8="
+    on:
+      branch: master
+      tags: true
