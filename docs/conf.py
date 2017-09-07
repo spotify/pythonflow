@@ -56,7 +56,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
     'sphinx.ext.autosummary',
-    'numpydoc'
+    'sphinx.ext.napoleon',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -197,5 +197,22 @@ texinfo_documents = [
 # Disable class members (https://github.com/phn/pytpm/issues/3#issuecomment-12133978)
 numpydoc_show_class_members = False
 
+# Use Numpy style
+napoleon_google_docstring = False
+napoleon_numpy_docstring = True
+
 # Ignore some warnings (https://stackoverflow.com/a/30624034/1150961)
-nitpick_ignore = [('py:class', 'object')]
+nitpick_ignore = [
+    ('py:class', 'object'),
+    ('py:obj', 'object'),
+    ('py:obj', 'None'),
+    ('py:obj', 'dict'),
+    ('py:obj', 'str'),
+    ('py:obj', 'int'),
+    ('py:obj', 'tuple'),
+    ('py:obj', 'list'),
+    ('py:obj', 'callable'),
+    ('py:exc', 'ValueError'),
+    ('py:exc', 'RuntimeError'),
+    ('py:exc', 'KeyError'),
+]
