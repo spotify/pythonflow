@@ -1,4 +1,4 @@
-.PHONY: docker_image docker_nbserver tests lint_tests code_tests docs
+.PHONY: docker_image docker_nbserver tests lint_tests code_tests docs sdist testpypi pypi
 
 docker_image : requirements/*.txt
 	docker build -t pythonflow .
@@ -20,3 +20,12 @@ code_tests :
 docs :
 	sphinx-build -b doctest docs build
 	sphinx-build -nWT docs build
+
+sdist :
+	python setup.py sdist
+
+testpypi : sdist
+	twine upload --repository-url https://test.pypi.org/legacy/ dist/pythonflow-*
+
+pypi : sdist
+	twine upload dist/pythonflow-*

@@ -10,5 +10,6 @@
         "Programming Language :: Python :: 3",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
         "Topic :: Utilities"
-    ]
+    ],
+    "url": "https://github.com/spotify/pythonflow"
 }
