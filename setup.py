@@ -14,20 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import json
 from setuptools import setup, find_packages
 
-setup(
-    name="pythonflow",
-    description="Dataflow programming in python",
-    version="0.1",
-    packages=find_packages(),
-    author="Till Hoffmann",
-    author_email="till@spotify.com",
-    license="License :: OSI Approved :: Apache Software License",
-    classifiers=[
-        "Development Status :: 3 - Alpha",
-        "Programming Language :: Python :: 3",
-        "Topic :: Scientific/Engineering :: Artificial Intelligence",
-        "Topic :: Utilities",
-    ]
-)
+with open("version.json") as fp:
+    kwargs = json.load(fp)
+
+setup(packages=find_packages(), **kwargs)

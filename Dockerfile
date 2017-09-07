@@ -2,8 +2,8 @@ FROM python:3
 MAINTAINER Till Hoffmann <till@spotify.com>
 
 # Install requirements
-COPY test-requirements.txt test-requirements.txt
-RUN pip install -r test-requirements.txt
+COPY requirements requirements
+RUN pip install -r requirements/docs.txt -r requirements/test.txt
 
 # Install the package
 COPY . pythonflow
