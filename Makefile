@@ -1,6 +1,6 @@
 .PHONY: docker_image docker_nbserver tests lint_tests code_tests docs sdist testpypi pypi
 
-docker_image : requirements/*.txt
+docker_image : dev-requirements.txt
 	docker build -t pythonflow .
 
 docker_nbserver : docker_image
