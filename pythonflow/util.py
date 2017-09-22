@@ -15,7 +15,7 @@
 # limitations under the License.
 
 
-class lazy_import:  # pylint: disable=invalid-name
+class lazy_import:  # pylint: disable=invalid-name, too-few-public-methods
     """
     Lazily import the given module.
 
