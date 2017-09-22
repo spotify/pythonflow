@@ -14,7 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pylint: disable=wildcard-import
-from .core import *
-from .operations import *
-from .util import *
+
+class lazy_import:  # pylint: disable=invalid-name, too-few-public-methods
+    """
+    Lazily import the given module.
+
+    Parameters
+    ----------
+    module : str
+        name of the module to import
+    """
+    def __init__(self, module):
+        self.module = module
+        self._module = None
+
+    def __getattr__(self, name):
+        if self._module is None:
+            self._module = __import__(self.module)
+        return getattr(self._module, name)

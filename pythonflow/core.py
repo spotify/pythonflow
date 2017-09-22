@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import collections
 import contextlib
 import functools
 import operator
@@ -91,9 +92,13 @@ class Graph:
         ------
         ValueError
             If the context specifies more than one value for any operation.
+        ValueError
+            If `context` is not a mapping.
         """
         if context is None:
             context = {}
+        elif not isinstance(context, collections.Mapping):
+            raise ValueError("`context` must be a mapping.")
 
         operations = list(context)
         for operation in operations:  # pylint:disable=W0621
@@ -129,12 +134,22 @@ class Graph:
         -------
         values : list[object]
             Output of the operations given the context.
+
+        Raises
+        ------
+        ValueError
+            If `fetches` is not an `Operation` instance, operation name, or a sequence thereof.
+        ValueError
+            If `context` is not a mapping.
         """
         if isinstance(fetches, (str, Operation)):
             fetches = [fetches]
             single = True
-        else:
+        elif isinstance(fetches, collections.Sequence):
             single = False
+        else:
+            raise ValueError("`fetches` must be an `Operation` instance, operation name, or a "
+                             "sequence thereof.")
 
         fetches = [self.normalize_operation(operation) for operation in fetches]
         context = self.normalize_context(context, **kwargs)
@@ -420,6 +435,9 @@ class Operation:  # pylint:disable=too-few-public-methods
 
     def __reversed__(self):
         return reversed_(self, graph=self.graph)
+
+    def __call__(self, *args, **kwargs):
+        return call(self, *args, **kwargs)
     # pylint: enable=E1123
 
 
@@ -504,6 +522,23 @@ format_ = opmethod(format)
 # pylint: enable=C0103
 
 
+@opmethod
+def call(func, *args, **kwargs):
+    """
+    Call `func` with positional arguments `args` and keyword arguments `kwargs`.
+
+    Parameters
+    ----------
+    func : callable
+        Function to call when the operation is executed.
+    args : list
+        Sequence of positional arguments passed to `func`.
+    kwargs : dict
+        Mapping of keyword arguments passed to `func`.
+    """
+    return func(*args, **kwargs)
+
+
 @contextlib.contextmanager
 def control_dependencies(dependencies, graph=None):
     """
@@ -512,7 +547,8 @@ def control_dependencies(dependencies, graph=None):
     Parameters
     ----------
     dependencies : list
-        sequence of operations to be evaluted before evaluating any operations defined in this scope
+        Sequence of operations to be evaluted before evaluating any operations defined in this
+        scope.
     """
     # Add dependencies to the graph
     graph = Graph.get_active_graph(graph)

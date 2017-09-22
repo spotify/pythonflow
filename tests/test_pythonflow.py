@@ -249,3 +249,31 @@ def test_str_format(format_string, args, kwargs):
         output = pf.str_format(format_string, *args, **kwargs)
 
     assert graph(output) == format_string.format(*args, **kwargs)
+
+
+def test_call():
+    class Adder:
+        def __init__(self, a, b):
+            self.a = a
+            self.b = b
+
+        def compute(self):
+            return self.a + self.b
+
+        def __call__(self):
+            return self.compute()
+
+    with pf.Graph() as graph:
+        adder = pf.constant(Adder(3, 7))
+        op1 = adder()
+        op2 = adder.compute()
+
+    assert graph([op1, op2]) == [10, 10]
+
+
+def test_lazy_import():
+    os = pf.lazy_import('os')
+    _ = os.path
+    missing = pf.lazy_import('some_missing_module')
+    with pytest.raises(ImportError):
+        _ = missing.missing_attribute

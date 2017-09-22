@@ -3,7 +3,7 @@ python:
   - "3.6"
 cache: pip
 install:
-  - pip install -r requirements/test.txt -r requirements/docs.txt
+  - pip install -r dev-requirements.txt
   - pip install -e .
 script:
   - make tests
