@@ -135,3 +135,27 @@ class Logger:
     @functools.wraps(logging.Logger.critical)
     def critical(self, message, *args, **kwargs):  # pylint: disable=missing-docstring
         return func_op(self.logger.critical, message, *args, **kwargs)
+
+
+class lazy_constant(Operation):  # pylint: disable=invalid-name
+    """
+    Operation that returns the output of `target` lazily.
+
+    Parameters
+    ----------
+    target : callable
+        Function to evaluate when the operation is evaluated.
+    kwargs : dict
+        Keyword arguments passed to the constructor of `Operation`.
+    """
+    def __init__(self, target, **kwargs):
+        super(lazy_constant, self).__init__(**kwargs)
+        self.target = target
+        if not callable(self.target):
+            raise ValueError("`target` must be callable")
+        self.value = None
+
+    def _evaluate(self):  # pylint: disable=W0221
+        if self.value is None:
+            self.value = self.target()
+        return self.value

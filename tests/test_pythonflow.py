@@ -277,3 +277,22 @@ def test_lazy_import():
     missing = pf.lazy_import('some_missing_module')
     with pytest.raises(ImportError):
         _ = missing.missing_attribute
+
+
+def test_lazy_constant():
+    import time
+
+    def target():
+        time.sleep(1)
+        return 12345
+
+    with pf.Graph() as graph:
+        value = pf.lazy_constant(target)
+
+    start = time.time()
+    assert graph(value) == 12345
+    assert time.time() - start > 1
+
+    start = time.time()
+    assert graph(value) == 12345
+    assert time.time() - start < 0.01
