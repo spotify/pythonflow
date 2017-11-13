@@ -214,6 +214,12 @@ class Operation:  # pylint:disable=too-few-public-methods
         self.dependencies = [] if dependencies is None else dependencies
         self.dependencies.extend(self.graph.dependencies)
 
+    def __getstate__(self):
+        return self.__dict__
+
+    def __setstate__(self, data):
+        self.__dict__.update(data)
+
     @property
     def name(self):
         """str : Unique name of the operation"""

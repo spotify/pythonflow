@@ -14,6 +14,7 @@
 
 import io
 import logging
+import pickle
 import random
 import uuid
 import pythonflow as pf
@@ -296,3 +297,17 @@ def test_lazy_constant():
     start = time.time()
     assert graph(value) == 12345
     assert time.time() - start < 0.01
+
+
+def test_graph_pickle():
+    with pf.Graph() as graph:
+        x = pf.placeholder('x')
+        y = pf.pow_(x, 3, name='y')
+
+    _x = random.uniform(0, 1)
+    desired = graph('y', x=_x)
+
+    pickled = pickle.dumps(graph)
+    graph = pickle.loads(pickled)
+    actual = graph('y', x=_x)
+    assert desired == actual
