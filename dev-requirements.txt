@@ -5,3 +5,5 @@ pytest==3.2.1
 pytest-cov==2.5.1
 pylint==1.7.2
 jupyter>=1.0.0
+ipyparallel==6.0.2
+tensorflow==1.4.0

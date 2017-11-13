@@ -1,1 +1,0 @@
-docker run --rm -v "$PWD":/pythonflow --env-file .env pythonflow "$@"

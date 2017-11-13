@@ -1,13 +1,7 @@
-.PHONY: docker_image docker_nbserver tests lint_tests code_tests docs sdist testpypi pypi
+.PHONY: image tests lint_tests code_tests docs sdist testpypi pypi
 
-docker_image : dev-requirements.txt
+image : dev-requirements.txt
 	docker build -t pythonflow .
-
-docker_nbserver : docker_image
-	docker run --rm -v "$$PWD":/pythonflow -p 9000:8888 pythonflow jupyter notebook --allow-root --ip=0.0.0.0 --no-browser
-
-docker_bash : docker_image
-	docker run --rm -v "$$PWD":/pythonflow -it pythonflow bash
 
 tests : lint_tests code_tests
 

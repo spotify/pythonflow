@@ -1,11 +1,11 @@
 FROM python:3
-MAINTAINER Till Hoffmann <till@spotify.com>
+LABEL maintainer="Till Hoffmann <till@spotify.com>"
 
 # Install requirements
 COPY dev-requirements.txt dev-requirements.txt
-RUN pip install -r dev-requirements.txt
+RUN pip install --no-cache-dir -r dev-requirements.txt
 
 # Install the package
-COPY . pythonflow
-WORKDIR pythonflow
+COPY . /workdir
+WORKDIR /workdir
 RUN pip install -e .

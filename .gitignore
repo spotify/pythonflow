@@ -96,3 +96,6 @@ playground/
 
 # VS Code project settings
 .vscode/
+
+# Docker run CLI
+.dr
