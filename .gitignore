@@ -99,3 +99,6 @@ playground/
 
 # Docker run CLI
 .dr
+
+# Data for examples
+mldata/
