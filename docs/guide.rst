@@ -172,7 +172,7 @@ You can use the :code:`pf.func_op` class to create an operation from a `callable
 .. doctest::
 
    >>> graph([uniform, scaled_uniform])
-   [0.13436424411240122, 1.3436424411240122]
+   (0.13436424411240122, 1.3436424411240122)
 
 The example above not only shows how to use existing functions as operations but also illustrates that each operation is evaluated at most once when you call :code:`graph`. Consequently, any computationally expensive operations are automatically cached.
 
@@ -196,7 +196,7 @@ If you only ever intend to use a callable as an operation, you can implement the
 .. doctest::
 
    >>> graph([y, z], {x: 'Hello World!'})
-   ['Hello ', 'World!']
+   ('Hello ', 'World!')
 
 You may use the :code:`opmethod` decorator with or without parameters. Specifying the :code:`length` parameter enables unpacking of operations as illustrated above. However, this means that your operations must not have a parameter called `length` that you set using a keyword argument (positional arguments are fine). If you are wrapping an existing method that takes a :code:`length` argument in a :code:`func_op`, use a :code:`lambda` function to rename the parameter like so.
 
@@ -215,7 +215,7 @@ You may use the :code:`opmethod` decorator with or without parameters. Specifyin
 .. doctest::
 
    >>> graph([y, z], {length: 3})
-   ['aaa', 'aaa']
+   ('aaa', 'aaa')
 
 Writing new operations using :code:`pf.Operation`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

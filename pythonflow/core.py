@@ -132,7 +132,7 @@ class Graph:
 
         Returns
         -------
-        values : list[object]
+        values : tuple[object]
             Output of the operations given the context.
 
         Raises
@@ -154,7 +154,7 @@ class Graph:
         fetches = [self.normalize_operation(operation) for operation in fetches]
         context = self.normalize_context(context, **kwargs)
         values = [fetch.evaluate(context) for fetch in fetches]
-        return values[0] if single else values
+        return values[0] if single else tuple(values)
 
     def __getitem__(self, name):
         return self.operations[name]
@@ -214,13 +214,22 @@ class Operation:  # pylint:disable=too-few-public-methods
         self.dependencies = [] if dependencies is None else dependencies
         self.dependencies.extend(self.graph.dependencies)
 
+    def __getstate__(self):
+        return self.__dict__
+
+    def __setstate__(self, data):
+        self.__dict__.update(data)
+
     @property
     def name(self):
         """str : Unique name of the operation"""
         return self._name
 
     @name.setter
-    def name(self, value):
+    def name(self, name):
+        self.set_name(name)
+
+    def set_name(self, name):
         """
         Set the name of the operation and update the graph.
 
@@ -229,6 +238,11 @@ class Operation:  # pylint:disable=too-few-public-methods
         value : str
             Unique name of the operation.
 
+        Returns
+        -------
+        self : Operation
+            This operation.
+
         Raises
         ------
         ValueError
@@ -236,60 +250,53 @@ class Operation:  # pylint:disable=too-few-public-methods
         KeyError
             If the current name of the operation cannot be found in the associated graph.
         """
-        if value in self.graph.operations:
-            raise ValueError("duplicate name '%s'" % value)
+        if name in self.graph.operations:
+            raise ValueError("duplicate name '%s'" % name)
         if self._name is not None:
             self.graph.operations.pop(self._name)
-        self.graph.operations[value] = self
-        self._name = value
+        self.graph.operations[name] = self
+        self._name = name
+        return self
 
-    def evaluate_dependencies(self, context=None, **kwargs):
+    def evaluate_dependencies(self, context):
         """
         Evaluate the dependencies of this operation and discard the values.
 
         Parameters
         ----------
-        context : dict or None
-            context in which to evaluate the operation
-        kwargs : dict
-            additional context information as keyword arguments
+        context : dict
+            Normalised context in which to evaluate the operation.
         """
-        context = self.graph.normalize_context(context, **kwargs)
         for operation in self.dependencies:
             operation.evaluate(context)
 
-    def evaluate(self, context=None, **kwargs):
+    def evaluate(self, context):
         """
         Evaluate the operation given a context.
 
         Parameters
         ----------
-        context : dict or None
-            Context in which to evaluate the operation.
-        kwargs : dict
-            Additional context information keyed by variable name.
+        context : dict
+            Normalised context in which to evaluate the operation.
 
         Returns
         -------
         value : object
             Output of the operation given the context.
         """
-        context = self.graph.normalize_context(context, **kwargs)
-
         # Evaluate all explicit dependencies first
         self.evaluate_dependencies(context)
 
-        try:
+        if self in context:
             return context[self]
-        except KeyError:
-            # Evaluate the parents
-            partial = functools.partial(self.evaluate_operation, context=context)
-            args = map(partial, self.args)
-            kwargs = {key: partial(value) for key, value in self.kwargs.items()}
-            # Evaluate the operation
-            value = self._evaluate(*args, **kwargs)
-            context[self] = value
-            return value
+        # Evaluate the parents
+        partial = functools.partial(self.evaluate_operation, context=context)
+        args = map(partial, self.args)
+        kwargs = {key: partial(value) for key, value in self.kwargs.items()}
+        # Evaluate the operation
+        value = self._evaluate(*args, **kwargs)
+        context[self] = value
+        return value
 
     def _evaluate(self, *args, **kwargs):
         """

@@ -14,6 +14,7 @@
 
 import io
 import logging
+import pickle
 import random
 import uuid
 import pythonflow as pf
@@ -42,7 +43,7 @@ def test_iter():
     with pf.Graph() as graph:
         pf.constant('abc', name='alphabet', length=3)
     a, b, c = graph['alphabet']
-    assert graph([a, b, c]) == list('abc')
+    assert graph([a, b, c]) == tuple('abc')
 
 
 def test_getattr():
@@ -268,15 +269,7 @@ def test_call():
         op1 = adder()
         op2 = adder.compute()
 
-    assert graph([op1, op2]) == [10, 10]
-
-
-def test_lazy_import():
-    os = pf.lazy_import('os')
-    _ = os.path
-    missing = pf.lazy_import('some_missing_module')
-    with pytest.raises(ImportError):
-        _ = missing.missing_attribute
+    assert graph([op1, op2]) == (10, 10)
 
 
 def test_lazy_constant():
@@ -296,3 +289,17 @@ def test_lazy_constant():
     start = time.time()
     assert graph(value) == 12345
     assert time.time() - start < 0.01
+
+
+def test_graph_pickle():
+    with pf.Graph() as graph:
+        x = pf.placeholder('x')
+        y = pf.pow_(x, 3, name='y')
+
+    _x = random.uniform(0, 1)
+    desired = graph('y', x=_x)
+
+    pickled = pickle.dumps(graph)
+    graph = pickle.loads(pickled)
+    actual = graph('y', x=_x)
+    assert desired == actual
