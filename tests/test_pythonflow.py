@@ -272,14 +272,6 @@ def test_call():
     assert graph([op1, op2]) == [10, 10]
 
 
-def test_lazy_import():
-    os = pf.lazy_import('os')
-    _ = os.path
-    missing = pf.lazy_import('some_missing_module')
-    with pytest.raises(ImportError):
-        _ = missing.missing_attribute
-
-
 def test_lazy_constant():
     import time
 
