@@ -132,7 +132,7 @@ class Graph:
 
         Returns
         -------
-        values : list[object]
+        values : tuple[object]
             Output of the operations given the context.
 
         Raises
