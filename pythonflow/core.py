@@ -258,53 +258,45 @@ class Operation:  # pylint:disable=too-few-public-methods
         self._name = name
         return self
 
-    def evaluate_dependencies(self, context=None, **kwargs):
+    def evaluate_dependencies(self, context):
         """
         Evaluate the dependencies of this operation and discard the values.
 
         Parameters
         ----------
-        context : dict or None
-            context in which to evaluate the operation
-        kwargs : dict
-            additional context information as keyword arguments
+        context : dict
+            Normalised context in which to evaluate the operation.
         """
-        context = self.graph.normalize_context(context, **kwargs)
         for operation in self.dependencies:
             operation.evaluate(context)
 
-    def evaluate(self, context=None, **kwargs):
+    def evaluate(self, context):
         """
         Evaluate the operation given a context.
 
         Parameters
         ----------
-        context : dict or None
-            Context in which to evaluate the operation.
-        kwargs : dict
-            Additional context information keyed by variable name.
+        context : dict
+            Normalised context in which to evaluate the operation.
 
         Returns
         -------
         value : object
             Output of the operation given the context.
         """
-        context = self.graph.normalize_context(context, **kwargs)
-
         # Evaluate all explicit dependencies first
         self.evaluate_dependencies(context)
 
-        try:
+        if self in context:
             return context[self]
-        except KeyError:
-            # Evaluate the parents
-            partial = functools.partial(self.evaluate_operation, context=context)
-            args = map(partial, self.args)
-            kwargs = {key: partial(value) for key, value in self.kwargs.items()}
-            # Evaluate the operation
-            value = self._evaluate(*args, **kwargs)
-            context[self] = value
-            return value
+        # Evaluate the parents
+        partial = functools.partial(self.evaluate_operation, context=context)
+        args = map(partial, self.args)
+        kwargs = {key: partial(value) for key, value in self.kwargs.items()}
+        # Evaluate the operation
+        value = self._evaluate(*args, **kwargs)
+        context[self] = value
+        return value
 
     def _evaluate(self, *args, **kwargs):
         """

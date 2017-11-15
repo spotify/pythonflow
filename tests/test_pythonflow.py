@@ -43,7 +43,7 @@ def test_iter():
     with pf.Graph() as graph:
         pf.constant('abc', name='alphabet', length=3)
     a, b, c = graph['alphabet']
-    assert graph([a, b, c]) == list('abc')
+    assert graph([a, b, c]) == tuple('abc')
 
 
 def test_getattr():
@@ -269,7 +269,7 @@ def test_call():
         op1 = adder()
         op2 = adder.compute()
 
-    assert graph([op1, op2]) == [10, 10]
+    assert graph([op1, op2]) == (10, 10)
 
 
 def test_lazy_constant():

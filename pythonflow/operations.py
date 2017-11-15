@@ -44,8 +44,7 @@ class conditional(Operation):  # pylint: disable=C0103,W0223
     def __init__(self, predicate, x, y=None, *, name=None, dependencies=None):  # pylint: disable=W0235
         super(conditional, self).__init__(predicate, x, y, name=name, dependencies=dependencies)
 
-    def evaluate(self, context=None, **kwargs):
-        context = self.graph.normalize_context(context, **kwargs)
+    def evaluate(self, context):
         # Evaluate all dependencies first
         self.evaluate_dependencies(context)
 
