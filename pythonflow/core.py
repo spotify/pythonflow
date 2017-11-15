@@ -154,7 +154,7 @@ class Graph:
         fetches = [self.normalize_operation(operation) for operation in fetches]
         context = self.normalize_context(context, **kwargs)
         values = [fetch.evaluate(context) for fetch in fetches]
-        return values[0] if single else values
+        return values[0] if single else tuple(values)
 
     def __getitem__(self, name):
         return self.operations[name]
@@ -226,7 +226,10 @@ class Operation:  # pylint:disable=too-few-public-methods
         return self._name
 
     @name.setter
-    def name(self, value):
+    def name(self, name):
+        self.set_name(name)
+
+    def set_name(self, name):
         """
         Set the name of the operation and update the graph.
 
@@ -235,6 +238,11 @@ class Operation:  # pylint:disable=too-few-public-methods
         value : str
             Unique name of the operation.
 
+        Returns
+        -------
+        self : Operation
+            This operation.
+
         Raises
         ------
         ValueError
@@ -242,12 +250,13 @@ class Operation:  # pylint:disable=too-few-public-methods
         KeyError
             If the current name of the operation cannot be found in the associated graph.
         """
-        if value in self.graph.operations:
-            raise ValueError("duplicate name '%s'" % value)
+        if name in self.graph.operations:
+            raise ValueError("duplicate name '%s'" % name)
         if self._name is not None:
             self.graph.operations.pop(self._name)
-        self.graph.operations[value] = self
-        self._name = value
+        self.graph.operations[name] = self
+        self._name = name
+        return self
 
     def evaluate_dependencies(self, context=None, **kwargs):
         """
