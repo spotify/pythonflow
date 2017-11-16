@@ -92,10 +92,11 @@ class Consumer(ZeroBase):
     """
     def __init__(self, push_address, pull_address, max_messages, dumps=None, loads=None):  # pylint: disable=too-many-arguments
         super(Consumer, self).__init__(push_address, pull_address, 'bind', dumps, loads)
+        if max_messages <= 0:
+            raise ValueError('`max_messages` must be positive but got %s' % max_messages)
         self.max_messages = max_messages
-        self.identifier_queue = queue.Queue(max_messages)
 
-    def push_message(self, message, enqueue=True):
+    def push_message(self, message, identifier_queue=None):
         """
         Push a message.
 
@@ -103,8 +104,8 @@ class Consumer(ZeroBase):
         ----------
         message : object
             Message to be pushed.
-        enqueue : bool
-            Whether to enqueue the message.
+        identifier_queue : queue.Queue
+            Queue used to keep track of the order of messages.
 
         Returns
         -------
@@ -112,12 +113,12 @@ class Consumer(ZeroBase):
             Unique identifier of the message.
         """
         identifier = uuid.uuid4().bytes
+        if identifier_queue:
+            identifier_queue.put(identifier, timeout=1)
         self.pusher.send(identifier + self.dumps(message))
-        if enqueue:
-            self.identifier_queue.put(identifier)
         return identifier
 
-    def push_messages(self, messages):
+    def push_messages(self, messages, stop_event, identifier_queue):
         """
         Push a sequence of messages.
 
@@ -125,11 +126,22 @@ class Consumer(ZeroBase):
         ----------
         messages : iterable
             Sequence of messages to push.
+        stop_event : threading.Event
+            Event used to stop pushing messages.
+        identifier_queue : queue.Queue
+            Queue used to keep track of the order of messages.
         """
-        for message in messages:
-            self.push_message(message)
-        # Set an end marker
-        self.identifier_queue.put(None)
+        messages = iter(messages)
+        message = next(messages)
+        while not stop_event.is_set():
+            try:
+                self.push_message(message, identifier_queue)
+                message = next(messages)
+            except queue.Full:  # pragma: no cover
+                pass
+            except StopIteration:
+                identifier_queue.put(None)
+                break
 
     def wait_for_message(self, identifier, cache):
         """
@@ -173,7 +185,7 @@ class Consumer(ZeroBase):
         payload : object
             Response payload.
         """
-        identifier = self.push_message(message, enqueue=False)
+        identifier = self.push_message(message)
         return self.wait_for_message(identifier, {})
 
     @staticmethod
@@ -208,25 +220,31 @@ class Consumer(ZeroBase):
         payload : object
             Response payload.
         """
-        # Check that the queue is empty
-        if not self.identifier_queue.empty():
-            raise RuntimeError("the identifier queue is not empty")
-        # Publish all the messages in a background thread
-        thread = threading.Thread(target=self.push_messages, args=(messages,))
-        thread.start()
+        try:
+            # Publish all the messages in a background thread
+            identifier_queue = queue.Queue(self.max_messages)
+            stop_event = threading.Event()
+            thread = threading.Thread(
+                target=self.push_messages,
+                args=(messages, stop_event, identifier_queue)
+            )
+            thread.start()
 
-        cache = {}
+            cache = {}
 
-        while True:
-            # Get the next identifier
-            identifier = self.identifier_queue.get()
-            if identifier is None:
-                break
+            while True:
+                # Get the next identifier
+                identifier = identifier_queue.get()
+                if identifier is None:
+                    return
 
-            yield self.wait_for_message(identifier, cache)
-
-        # Wait for the publishing thread to exit
-        thread.join()
+                yield self.wait_for_message(identifier, cache)
+        except:  # pragma: no cover
+            stop_event.set()
+            raise
+        finally:
+            # Wait for the publishing thread to exit
+            thread.join()
 
     def __call__(self, fetches, context, **kwargs):
         """
@@ -262,8 +280,8 @@ class Consumer(ZeroBase):
             Additional context information keyed by variable name that is shared across all
             contexts.
         """
-        return self.map_messages(
-            map(lambda context: self.build_message(fetches, context, **kwargs), contexts))
+        messages = map(lambda context: self.build_message(fetches, context, **kwargs), contexts)
+        return self.map_messages(messages)
 
 
 class Producer(ZeroBase):  # pragma: no cover
