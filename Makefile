@@ -23,3 +23,6 @@ testpypi : sdist
 
 pypi : sdist
 	twine upload dist/pythonflow-*
+
+clean :
+	rm -rf build/
