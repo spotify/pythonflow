@@ -57,6 +57,7 @@ extensions = [
     'sphinx.ext.githubpages',
     'sphinx.ext.autosummary',
     'sphinx.ext.napoleon',
+    'matplotlib.sphinxext.plot_directive',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -212,6 +213,11 @@ nitpick_ignore = [
     ('py:obj', 'tuple'),
     ('py:obj', 'list'),
     ('py:obj', 'callable'),
+    ('py:obj', 'iterable'),
+    ('py:obj', 'bool'),
+    ('py:obj', 'bytes'),
+    ('py:obj', 'queue.Queue'),
+    ('py:obj', 'threading.Event'),
     ('py:exc', 'ValueError'),
     ('py:exc', 'RuntimeError'),
     ('py:exc', 'KeyError'),

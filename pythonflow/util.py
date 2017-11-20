@@ -63,7 +63,7 @@ class batch_iterable:  # pylint: disable=invalid-name, too-few-public-methods
         for item in self.iterable:
             batch.append(item)
             if len(batch) == self.batch_size:
-                yield zip(*batch) if self.transpose else batch
+                yield tuple(zip(*batch)) if self.transpose else batch
                 batch = []
         if batch:
-            yield zip(*batch) if self.transpose else batch
+            yield tuple(zip(*batch)) if self.transpose else batch

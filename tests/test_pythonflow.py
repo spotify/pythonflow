@@ -303,3 +303,11 @@ def test_graph_pickle():
     graph = pickle.loads(pickled)
     actual = graph('y', x=_x)
     assert desired == actual
+
+
+def test_import():
+    with pf.Graph() as graph:
+        os_ = pf.import_('os')
+        isfile = os_.path.isfile(__file__)
+
+    assert graph(isfile)

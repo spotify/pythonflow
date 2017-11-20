@@ -29,6 +29,15 @@ Although a little cryptic, the output tells us that :code:`x` is an operation th
 
 pythonflow supports all operations of the standard python `data model <https://docs.python.org/3/reference/datamodel.html>`_ that do not change the state of the operation (think `:code:`const` member functions <https://isocpp.org/wiki/faq/const-correctness#const-member-fns>`_) in C++) because operations are assumed to be stateless. For example, :code:`b = a + 1` is allowed whereas :code:`a += 1` is not. However, we do not believe this imposes significant restrictions.
 
+.. _some_background:
+
+Some background
+---------------
+
+Computations are encoded as a DAG where operations are represented by nodes and dependencies between operations are represented by edges. Operations are usually stateless, i.e. they provide the same output given the same input (see :ref:`new_operations_3` for an exception). All state information is provided by the :code:`context`, which is a mapping from nodes to values.
+
+When Pythonflow evaluates an operation, it will check whether the current :code:`context` provides a value for the operation and return it immediately if possible. If the current :code:`context` does not provide a value for the operation, Pythonflow will evaluate the dependencies of the operation, evaluate the operation of interest, store the computed value in the context, and return the value.
+
 Referring to operations
 -----------------------
 
@@ -55,6 +64,15 @@ Or the name of an operation can be changed after it has been created (as long as
        b = pf.constant(38)
        x = a + b
        x.name = 'my_addition'
+
+Finally, you can change an operation's name using its :code:`set_name` method, e.g.
+
+.. testcode::
+
+   with pf.Graph() as graph:
+       a = pf.constant(4)
+       b = pf.constant(38)
+       x = (a + b).set_name('my_addition')
 
 Once a name has been set, an operation can be evaluated like so
 
@@ -216,6 +234,10 @@ You may use the :code:`opmethod` decorator with or without parameters. Specifyin
 
    >>> graph([y, z], {length: 3})
    ('aaa', 'aaa')
+
+
+.. _new_operations_3:
+
 
 Writing new operations using :code:`pf.Operation`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

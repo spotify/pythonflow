@@ -15,3 +15,5 @@ matplotlib==2.1.0
 ipywidgets==7.0.4
 tqdm==4.19.4
 line_profiler==2.0
+pyzmq==16.0.3
+imageio==2.2.0
