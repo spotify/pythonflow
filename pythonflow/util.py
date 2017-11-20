@@ -41,7 +41,7 @@ class batch_iterable:  # pylint: disable=invalid-name, too-few-public-methods
 
     Parameters
     ----------
-    iterable : iterable
+    iterable : collections.Sequence
         Iterable to split into batches.
     batch_size : int
         Size of each batch.

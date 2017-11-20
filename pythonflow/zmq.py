@@ -20,6 +20,8 @@ import threading
 import uuid
 import zmq
 
+from .util import batch_iterable
+
 
 class ZeroBase:  # pylint: disable=too-few-public-methods
     """
@@ -83,20 +85,15 @@ class Consumer(ZeroBase):
         Address to which messages are pushed.
     pull_address : str
         Address from which messages are pulled.
-    max_messages : str
-        Maximum number of messages that are published at any time.
     dumps : callable
         Function to serialize messages (defaults to `pickle.dumps`).
     loads : callable
         Function to deserialize messages (defaults to `pickle.loads`).
     """
-    def __init__(self, push_address, pull_address, max_messages, dumps=None, loads=None):  # pylint: disable=too-many-arguments
+    def __init__(self, push_address, pull_address, dumps=None, loads=None):  # pylint: disable=too-many-arguments
         super(Consumer, self).__init__(push_address, pull_address, 'bind', dumps, loads)
-        if max_messages <= 0:
-            raise ValueError('`max_messages` must be positive but got %s' % max_messages)
-        self.max_messages = max_messages
 
-    def push_message(self, message, identifier_queue=None):
+    def push_message(self, message, identifier_queue=None, command=b'\x00'):
         """
         Push a message.
 
@@ -106,6 +103,9 @@ class Consumer(ZeroBase):
             Message to be pushed.
         identifier_queue : queue.Queue
             Queue used to keep track of the order of messages.
+        command : bytes
+            Command to execute on the remote (`0x00` to apply the target to the message,
+            `0x01` to map the target over the message).
 
         Returns
         -------
@@ -115,10 +115,10 @@ class Consumer(ZeroBase):
         identifier = uuid.uuid4().bytes
         if identifier_queue:
             identifier_queue.put(identifier, timeout=1)
-        self.pusher.send(identifier + self.dumps(message))
+        self.pusher.send(b''.join([identifier, command, self.dumps(message)]))
         return identifier
 
-    def push_messages(self, messages, stop_event, identifier_queue):
+    def push_messages(self, messages, stop_event, identifier_queue, command=b'\x00'):
         """
         Push a sequence of messages.
 
@@ -130,12 +130,15 @@ class Consumer(ZeroBase):
             Event used to stop pushing messages.
         identifier_queue : queue.Queue
             Queue used to keep track of the order of messages.
+        command : bytes
+            Command to execute on the remote (`0x00` to apply the target to the message,
+            `0x01` to map the target over the message).
         """
         messages = iter(messages)
         message = next(messages)
         while not stop_event.is_set():
             try:
-                self.push_message(message, identifier_queue)
+                self.push_message(message, identifier_queue, command)
                 message = next(messages)
             except queue.Full:  # pragma: no cover
                 pass
@@ -171,7 +174,7 @@ class Consumer(ZeroBase):
 
         return cache.pop(identifier)
 
-    def get_message(self, message):
+    def get_message(self, message, command=b'\x00'):
         """
         Push a message and wait for the response.
 
@@ -179,13 +182,16 @@ class Consumer(ZeroBase):
         ----------
         message : object
             Message to be pushed.
+        command : bytes
+            Command to execute on the remote (`0x00` to apply the target to the message,
+            `0x01` to map the target over the message).
 
         Returns
         -------
         payload : object
             Response payload.
         """
-        identifier = self.push_message(message)
+        identifier = self.push_message(message, command=command)
         return self.wait_for_message(identifier, {})
 
     @staticmethod
@@ -206,7 +212,7 @@ class Consumer(ZeroBase):
             'context': context,
         }
 
-    def map_messages(self, messages):
+    def map_messages(self, messages, max_messages, command=b'\x00'):
         """
         Push a sequence of messages and wait for the responses.
 
@@ -214,19 +220,27 @@ class Consumer(ZeroBase):
         ----------
         messages : iterable
             Sequence of messages to push.
+        max_messages : int
+            Maximum number of messages that are published at any time.
+        command : bytes
+            Command to execute on the remote (`0x00` to apply the target to the message,
+            `0x01` to map the target over the message).
 
         Yields
         ------
         payload : object
             Response payload.
         """
+        if max_messages <= 0:
+            raise ValueError('`max_messages` must be positive but got %s' % max_messages)
+
         try:
             # Publish all the messages in a background thread
-            identifier_queue = queue.Queue(self.max_messages)
+            identifier_queue = queue.Queue(max_messages)
             stop_event = threading.Event()
             thread = threading.Thread(
                 target=self.push_messages,
-                args=(messages, stop_event, identifier_queue)
+                args=(messages, stop_event, identifier_queue, command)
             )
             thread.start()
 
@@ -266,7 +280,7 @@ class Consumer(ZeroBase):
         """
         return self.get_message(self.build_message(fetches, context, **kwargs))
 
-    def map(self, fetches, contexts, **kwargs):
+    def map(self, fetches, contexts, *, batch_size=1, max_messages=1, **kwargs):
         """
         Evaluate one or more operations remotely given a sequence of contexts.
 
@@ -276,17 +290,27 @@ class Consumer(ZeroBase):
             One or more `Operation` instances or names to evaluate.
         contexts : list[dict or None]
             Sequence of contexts in which to evaluate the operations.
+        batch_size : int
+            Number of items per batch.
+        max_messages : int
+            Maximum number of messages that are published at any time. Increasing the maximum
+            number of messages generally improves performance but will consume more memory.
         kwargs : dict
             Additional context information keyed by variable name that is shared across all
             contexts.
         """
         messages = map(lambda context: self.build_message(fetches, context, **kwargs), contexts)
-        return self.map_messages(messages)
+        if batch_size > 1:
+            messages = batch_iterable(messages, batch_size)
+            command = b'\x01'
+        else:
+            command = b'\x00'
+        return self.map_messages(messages, max_messages, command)
 
 
-class Producer(ZeroBase):  # pragma: no cover
+class Processor(ZeroBase):  # pragma: no cover
     """
-    Data producer.
+    Data processor.
 
     Parameters
     ----------
@@ -302,7 +326,7 @@ class Producer(ZeroBase):  # pragma: no cover
         Function to deserialize messages.
     """
     def __init__(self, push_address, pull_address, target, dumps=None, loads=None):  # pylint: disable=too-many-arguments
-        super(Producer, self).__init__(push_address, pull_address, 'connect', dumps, loads)
+        super(Processor, self).__init__(push_address, pull_address, 'connect', dumps, loads)
         self.target = target
 
     def run(self):
@@ -312,11 +336,18 @@ class Producer(ZeroBase):  # pragma: no cover
         while True:
             message = self.puller.recv()
             identifier = message[:self.IDENTIFIER_SIZE]
+            command = message[self.IDENTIFIER_SIZE]
             status = b'\x00'
             try:
-                payload = self.loads(message[self.IDENTIFIER_SIZE:])
+                payload = self.loads(message[self.IDENTIFIER_SIZE + 1:])
                 try:
-                    payload = self.target(payload)
+                    if command == 0:
+                        payload = self.target(payload)
+                    elif command == 1:
+                        payload = tuple(map(self.target, payload))
+                    else:
+                        status = b'\x03'
+                        payload = KeyError("invalid command code: %s" % command)
                 except Exception as payload:  # pylint: disable=broad-except
                     status = '\x02'
             except Exception as payload:  # pylint: disable=broad-except
