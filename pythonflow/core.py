@@ -17,6 +17,7 @@
 import collections
 import contextlib
 import functools
+import importlib
 import operator
 import uuid
 
@@ -526,6 +527,7 @@ tuple_ = opmethod(tuple)
 reversed_ = opmethod(reversed)
 print_ = opmethod(print)
 format_ = opmethod(format)
+import_ = opmethod(importlib.import_module)
 # pylint: enable=C0103
 
 
