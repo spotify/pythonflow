@@ -10,3 +10,13 @@ pythonflow package
     :members:
     :undoc-members:
     :show-inheritance:
+
+.. automodule:: pythonflow.util
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. automodule:: pythonflow.zmq
+    :members:
+    :undoc-members:
+    :show-inheritance:
