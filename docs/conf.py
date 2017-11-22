@@ -57,6 +57,7 @@ extensions = [
     'sphinx.ext.githubpages',
     'sphinx.ext.autosummary',
     'sphinx.ext.napoleon',
+    'sphinx.ext.intersphinx',
     'matplotlib.sphinxext.plot_directive',
 ]
 
@@ -204,21 +205,7 @@ napoleon_numpy_docstring = True
 
 # Ignore some warnings (https://stackoverflow.com/a/30624034/1150961)
 nitpick_ignore = [
-    ('py:class', 'object'),
-    ('py:obj', 'object'),
-    ('py:obj', 'None'),
-    ('py:obj', 'dict'),
-    ('py:obj', 'str'),
-    ('py:obj', 'int'),
-    ('py:obj', 'tuple'),
-    ('py:obj', 'list'),
-    ('py:obj', 'callable'),
     ('py:obj', 'iterable'),
-    ('py:obj', 'bool'),
-    ('py:obj', 'bytes'),
-    ('py:obj', 'queue.Queue'),
-    ('py:obj', 'threading.Event'),
-    ('py:exc', 'ValueError'),
-    ('py:exc', 'RuntimeError'),
-    ('py:exc', 'KeyError'),
 ]
+
+intersphinx_mapping = {'python': ('https://docs.python.org/3.6', None)}
