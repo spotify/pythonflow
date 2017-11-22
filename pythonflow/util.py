@@ -14,7 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import collections
+import contextlib
 import math
+import time
 
 
 class lazy_import:  # pylint: disable=invalid-name, too-few-public-methods
@@ -67,3 +70,44 @@ class batch_iterable:  # pylint: disable=invalid-name, too-few-public-methods
                 batch = []
         if batch:
             yield tuple(zip(*batch)) if self.transpose else batch
+
+
+class Profiler:  # pylint: disable=too-few-public-methods
+    """
+    Callback for profiling computational graphs.
+
+    Attributes
+    ----------
+    times : dict[Operation, float]
+        Mapping from operations to execution times.
+    """
+    def __init__(self):
+        self.times = {}
+
+    def get_slow_operations(self, num_operations=None):
+        """
+        Get the slowest operations.
+
+        Parameters
+        ----------
+        num_operations : int or None
+            Maximum number of operations to return or `None`
+
+        Returns
+        -------
+        times : collections.OrderedDict
+            Mapping of execution times keyed by operations.
+        """
+        items = list(sorted(self.times.items(), key=lambda x: x[1], reverse=True))
+        if num_operations is not None:
+            items = items[:num_operations]
+        return collections.OrderedDict(items)
+
+    @contextlib.contextmanager
+    def __call__(self, operation, context):
+        start = time.time()
+        yield
+        self.times[operation] = time.time() - start
+
+    def __str__(self):
+        return "\n".join(['%s: %s' % item for item in self.get_slow_operations(10).items()])

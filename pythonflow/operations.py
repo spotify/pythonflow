@@ -44,15 +44,19 @@ class conditional(Operation):  # pylint: disable=C0103,W0223
     def __init__(self, predicate, x, y=None, *, name=None, dependencies=None):  # pylint: disable=W0235
         super(conditional, self).__init__(predicate, x, y, name=name, dependencies=dependencies)
 
-    def evaluate(self, context):
+    def evaluate(self, context, callback=None):
         # Evaluate all dependencies first
         self.evaluate_dependencies(context)
 
         predicate, x, y = self.args  # pylint: disable=E0632,C0103
         # Evaluate the predicate and pick the right operation
         predicate = self.evaluate_operation(predicate, context)
-        return self.evaluate_operation(x if predicate else y, context)
-
+        if callback:
+            with callback(self, context):
+                context[self] = value = self.evaluate_operation(x if predicate else y, context)
+        else:
+            context[self] = value = self.evaluate_operation(x if predicate else y, context)
+        return value
 
 @opmethod
 def identity(value):

@@ -118,7 +118,7 @@ class Graph:
 
         return context
 
-    def __call__(self, fetches, context=None, **kwargs):
+    def __call__(self, fetches, context=None, *, callback=None, **kwargs):
         """
         Evaluate one or more operations given a context.
 
@@ -128,6 +128,8 @@ class Graph:
             One or more `Operation` instances or names to evaluate.
         context : dict or None
             Context in which to evaluate the operations.
+        callback : callable or None
+            Callback to be evaluated when an operation is evaluated.
         kwargs : dict
             Additional context information keyed by variable name.
 
@@ -154,7 +156,7 @@ class Graph:
 
         fetches = [self.normalize_operation(operation) for operation in fetches]
         context = self.normalize_context(context, **kwargs)
-        values = [fetch.evaluate(context) for fetch in fetches]
+        values = [fetch.evaluate(context, callback=callback) for fetch in fetches]
         return values[0] if single else tuple(values)
 
     def __getitem__(self, name):
@@ -259,7 +261,7 @@ class Operation:  # pylint:disable=too-few-public-methods
         self._name = name
         return self
 
-    def evaluate_dependencies(self, context):
+    def evaluate_dependencies(self, context, callback=None):
         """
         Evaluate the dependencies of this operation and discard the values.
 
@@ -267,11 +269,13 @@ class Operation:  # pylint:disable=too-few-public-methods
         ----------
         context : dict
             Normalised context in which to evaluate the operation.
+        callback : callable or None
+            Callback to be evaluated when an operation is evaluated.
         """
         for operation in self.dependencies:
-            operation.evaluate(context)
+            operation.evaluate(context, callback)
 
-    def evaluate(self, context):
+    def evaluate(self, context, callback=None):
         """
         Evaluate the operation given a context.
 
@@ -279,6 +283,8 @@ class Operation:  # pylint:disable=too-few-public-methods
         ----------
         context : dict
             Normalised context in which to evaluate the operation.
+        callback : callable or None
+            Callback to be evaluated when an operation is evaluated.
 
         Returns
         -------
@@ -286,17 +292,21 @@ class Operation:  # pylint:disable=too-few-public-methods
             Output of the operation given the context.
         """
         # Evaluate all explicit dependencies first
-        self.evaluate_dependencies(context)
+        self.evaluate_dependencies(context, callback)
 
         if self in context:
             return context[self]
         # Evaluate the parents
-        partial = functools.partial(self.evaluate_operation, context=context)
-        args = map(partial, self.args)
+        partial = functools.partial(self.evaluate_operation, context=context, callback=callback)
+        args = [partial(arg) for arg in self.args]
         kwargs = {key: partial(value) for key, value in self.kwargs.items()}
         # Evaluate the operation
-        value = self._evaluate(*args, **kwargs)
-        context[self] = value
+        if callback:
+            with callback(self, context):
+                context[self] = value = self._evaluate(*args, **kwargs)
+        else:
+            context[self] = value = self._evaluate(*args, **kwargs)
+
         return value
 
     def _evaluate(self, *args, **kwargs):
