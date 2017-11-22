@@ -12,28 +12,11 @@ Building an image transformation graph
 
 For example, you may want to speed up the process of applying a transformation to an image using the following graph.
 
-.. testcode::
-
-    import pythonflow as pf
-
-
-    with pf.Graph() as graph:
-        # Only load the libraries when necessary
-        imageio = pf.import_('imageio')
-        ndimage = pf.import_('scipy.ndimage')
-        np = pf.import_('numpy')
-
-        filename = pf.placeholder('filename')
-        image = (imageio.imread(filename)[..., :3] / 255.0).set_name('image')
-        noise_scale = pf.constant(.25, name='noise_scale')
-        noise = (1 - np.random.uniform(0, noise_scale, image.shape)).set_name('noise')
-        noisy_image = (image * noise).set_name('noisy_image')
-        angle = np.random.uniform(-45, 45)
-        rotated_image = ndimage.rotate(noisy_image, angle, reshape=False).set_name('rotated_image')
+.. literalinclude:: examples/image_transformation.py
 
 Let's run the default pipeline using the Spotify logo.
 
-.. testcode::
+.. code-block:: python
 
     context = {'filename': 'docs/spotify.png'}
     graph('rotated_image', context)
@@ -42,22 +25,7 @@ Because the context keeps track of all computation steps, we have access to the 
 
 .. plot::
 
-    import pythonflow as pf
-
-
-    with pf.Graph() as graph:
-        # Only load the libraries when necessary
-        imageio = pf.import_('imageio')
-        ndimage = pf.import_('scipy.ndimage')
-        np = pf.import_('numpy')
-
-        filename = pf.placeholder('filename')
-        image = (imageio.imread(filename)[..., :3] / 255.0).set_name('image')
-        noise_scale = pf.constant(.25, name='noise_scale')
-        noise = (1 - np.random.uniform(0, noise_scale, image.shape)).set_name('noise')
-        noisy_image = (image * noise).set_name('noisy_image')
-        angle = np.random.uniform(-45, 45)
-        rotated_image = ndimage.rotate(noisy_image, angle, reshape=False).set_name('rotated_image')
+    exec(open('examples/image_transformation.py').read(), globals(), locals())
 
     context = {'filename': 'spotify.png'}
     graph('rotated_image', context)
@@ -115,3 +83,7 @@ Calling the consumer directly is useful for debugging. You can apply the process
 By default, the consumer will only publish one message at any point in time because it does not know how many processors there are. You can achieve better performance by setting the keyword argument :code:`max_messages` to a small integer multiple of the number of processors you have. Setting :code:`max_messages` too low will mean that the processors spend most of their time idling and waiting for messages to process. Setting it too high will mean that you exhaust your computer memory if the sequence of contexts is large.
 
 You can also batch the data by setting the :code:`batch_size` argument to an integer larger than one such that :code:`iterable` will yield batches of the desired size.
+
+.. note::
+
+    By default, the consumer and processors will use :code:`pickle` to (de)serialize all messages. You may want to consider your own serialization format or use `msgpack <https://msgpack.org/index.html>`_.

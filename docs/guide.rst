@@ -397,3 +397,92 @@ No software is complete without the ability to log information for later analysi
    >>> graph(tea_temperature, tea_temperature=85)  # doctest: +SKIP
    WARNING:root:the tea is too hot
    85
+
+Profiling and callbacks
+-----------------------
+
+If your graph doesn't perform as well as you would like, you can gain some insight into where it's spending its time by attaching a profiler. For example, the following graph loads an image and applies a few transformations.
+
+.. literalinclude:: examples/image_transformation.py
+
+.. testsetup:: profiling
+
+    exec(open('docs/examples/image_transformation.py').read(), globals(), locals())
+
+.. testcode:: profiling
+
+    profiler = pf.Profiler()
+    graph('rotated_image', filename='docs/spotify.png', callback=profiler)
+
+Printing the profiler shows the ten most expensive operations. More detailed information can be retrieved by accessing the :code:`times` attribute or calling :code:`get_slow_operations`.
+
+.. doctest:: profiling
+
+    >>> print(profiler)  # doctest: +SKIP
+    <pf.func_op 'rotated_image' target=<function call at 0x7fa6fff3abf8> args=<3 items> kwargs=<1 items>>: 0.014486551284790039
+    <pf.func_op 'imread' target=<function call at 0x7fa6fff3abf8> args=<2 items> kwargs=<0 items>>: 0.003396749496459961
+    <pf.func_op '214e8b1e1db94dfa9840d9cc4e510c25' target=<function call at 0x7fa6fff3abf8> args=<4 items> kwargs=<0 items>>: 0.0013699531555175781
+    <pf.func_op 'image' target=<built-in function truediv> args=<2 items> kwargs=<0 items>>: 0.0005080699920654297
+    <pf.func_op 'noisy_image' target=<built-in function mul> args=<2 items> kwargs=<0 items>>: 0.00014448165893554688
+    <pf.func_op 'noise' target=<built-in function sub> args=<2 items> kwargs=<0 items>>: 0.000125885009765625
+    <pf.func_op '2acc029ccdb34007a826a3af3230a483' target=<function import_module at 0x7fa71a86f488> args=<1 items> kwargs=<0 items>>: 3.838539123535156e-05
+    <pf.func_op '5b342c50ea0c48d0b136cb6d93fdc579' target=<function import_module at 0x7fa71a86f488> args=<1 items> kwargs=<0 items>>: 2.8133392333984375e-05
+    <pf.func_op '583f053d792245c4bad181e2430eb8d2' target=<built-in function getitem> args=<2 items> kwargs=<0 items>>: 2.0265579223632812e-05
+    <pf.func_op '9f39f2b5e0d74fe695099cd78d8ecd11' target=<function import_module at 0x7fa71a86f488> args=<1 items> kwargs=<0 items>>: 1.9788742065429688e-05
+
+Rotating and reading the image from disk are the two most expensive operations.
+
+The profiler is implemented as a callback that is passed to the graph when fetches are evaluated. Callbacks are `context managers <https://docs.python.org/3/reference/datamodel.html#with-statement-context-managers>`_ whose context is entered before an operation is evaluated and exited after the operation has been evaluated. Callbacks must accept exactly two arguments: the operation under consideration and the context. Here is an example that prints some information about the evaluation of the fetches.
+
+.. testcode:: profiling
+
+    import contextlib
+
+
+    @contextlib.contextmanager
+    def print_summary(operation, context):
+        print("About to evaluate '%s', %d values in the context." % (operation.name, len(context)))
+        yield
+        print("Evaluated '%s', %d values in the context." % (operation.name, len(context)))
+
+.. doctest:: profiling
+
+    >>> graph('rotated_image', filename='docs/spotify.png', callback=print_summary)  # doctest: +SKIP
+    About to evaluate '2acc029ccdb34007a826a3af3230a483', 1 values in the context.
+    Evaluated '2acc029ccdb34007a826a3af3230a483', 2 values in the context.
+    About to evaluate '60f266f8dd69441eb25dea412a92dbb0', 2 values in the context.
+    Evaluated '60f266f8dd69441eb25dea412a92dbb0', 3 values in the context.
+    About to evaluate '9f39f2b5e0d74fe695099cd78d8ecd11', 3 values in the context.
+    Evaluated '9f39f2b5e0d74fe695099cd78d8ecd11', 4 values in the context.
+    About to evaluate '7e6579c9d3784500a1dd555e3ea81bde', 4 values in the context.
+    Evaluated '7e6579c9d3784500a1dd555e3ea81bde', 5 values in the context.
+    About to evaluate 'imread', 5 values in the context.
+    Evaluated 'imread', 6 values in the context.
+    About to evaluate '583f053d792245c4bad181e2430eb8d2', 6 values in the context.
+    Evaluated '583f053d792245c4bad181e2430eb8d2', 7 values in the context.
+    About to evaluate 'image', 7 values in the context.
+    Evaluated 'image', 8 values in the context.
+    About to evaluate '5b342c50ea0c48d0b136cb6d93fdc579', 8 values in the context.
+    Evaluated '5b342c50ea0c48d0b136cb6d93fdc579', 9 values in the context.
+    About to evaluate '748ad66b9338417594015a71486b324f', 9 values in the context.
+    Evaluated '748ad66b9338417594015a71486b324f', 10 values in the context.
+    About to evaluate '240dcda966e34cfb957d4b91e4e31a4f', 10 values in the context.
+    Evaluated '240dcda966e34cfb957d4b91e4e31a4f', 11 values in the context.
+    About to evaluate 'noise_scale', 11 values in the context.
+    Evaluated 'noise_scale', 12 values in the context.
+    About to evaluate 'c44468bd3aac44ddb8b3e8bd2b9eb832', 12 values in the context.
+    Evaluated 'c44468bd3aac44ddb8b3e8bd2b9eb832', 13 values in the context.
+    About to evaluate '214e8b1e1db94dfa9840d9cc4e510c25', 13 values in the context.
+    Evaluated '214e8b1e1db94dfa9840d9cc4e510c25', 14 values in the context.
+    About to evaluate 'noise', 14 values in the context.
+    Evaluated 'noise', 15 values in the context.
+    About to evaluate 'noisy_image', 15 values in the context.
+    Evaluated 'noisy_image', 16 values in the context.
+    About to evaluate '08bd356d6d464837a6a367c34591c961', 16 values in the context.
+    Evaluated '08bd356d6d464837a6a367c34591c961', 17 values in the context.
+    About to evaluate '8fa2493c78174b2f9d9849afa4e7e1f5', 17 values in the context.
+    Evaluated '8fa2493c78174b2f9d9849afa4e7e1f5', 18 values in the context.
+    About to evaluate '6c1d0576cadc418b8f037455fec5c749', 18 values in the context.
+    Evaluated '6c1d0576cadc418b8f037455fec5c749', 19 values in the context.
+    About to evaluate 'rotated_image', 19 values in the context.
+    Evaluated 'rotated_image', 20 values in the context.
