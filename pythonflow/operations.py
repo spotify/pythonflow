@@ -53,10 +53,9 @@ class conditional(Operation):  # pylint: disable=C0103,W0223
         predicate = self.evaluate_operation(predicate, context)
         if callback:
             with callback(self, context):
-                value = self.evaluate_operation(x if predicate else y, context)
+                context[self] = value = self.evaluate_operation(x if predicate else y, context)
         else:
-            value = self.evaluate_operation(x if predicate else y, context)
-        context[self] = value
+            context[self] = value = self.evaluate_operation(x if predicate else y, context)
         return value
 
 @opmethod

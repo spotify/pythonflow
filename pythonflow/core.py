@@ -298,15 +298,14 @@ class Operation:  # pylint:disable=too-few-public-methods
             return context[self]
         # Evaluate the parents
         partial = functools.partial(self.evaluate_operation, context=context, callback=callback)
-        args = map(partial, self.args)
+        args = [partial(arg) for arg in self.args]
         kwargs = {key: partial(value) for key, value in self.kwargs.items()}
         # Evaluate the operation
         if callback:
             with callback(self, context):
-                value = self._evaluate(*args, **kwargs)
+                context[self] = value = self._evaluate(*args, **kwargs)
         else:
-            value = self._evaluate(*args, **kwargs)
-        context[self] = value
+            context[self] = value = self._evaluate(*args, **kwargs)
 
         return value
 
