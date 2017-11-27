@@ -242,7 +242,7 @@ You may use the :code:`opmethod` decorator with or without parameters. Specifyin
 Writing new operations using :code:`pf.Operation`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If you want to create stateful operations, you need to dig a bit deeper into pythonflow. For example, stateful operations may be useful when you need to access a database but don't want to open a new connection every time you send a request. Stateful operations are implemented by inheriting from `pf.Operation` and implementing the `__call__` method like so.
+If you want to create stateful operations, you need to dig a bit deeper into pythonflow. For example, stateful operations may be useful when you need to access a database but don't want to open a new connection every time you send a request. Stateful operations are implemented by inheriting from `pf.Operation` and implementing the :code:`_evaluate` method like so.
 
 .. testcode::
 
