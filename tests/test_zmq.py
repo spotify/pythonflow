@@ -44,3 +44,8 @@ def test_map_batch(consumer):
     expected = [(0, 3, 6), (9, 12)]
     for a, b in zip(actual, expected):
         assert a == b
+
+
+def test_call_invalid(consumer):
+    with pytest.raises(KeyError):
+        consumer('missing-operation')
