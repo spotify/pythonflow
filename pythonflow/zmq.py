@@ -260,7 +260,7 @@ class Consumer(ZeroBase):
             # Wait for the publishing thread to exit
             thread.join()
 
-    def __call__(self, fetches, context, **kwargs):
+    def __call__(self, fetches, context=None, **kwargs):
         """
         Evaluate one or more operations remotely given a context.
 
@@ -278,7 +278,7 @@ class Consumer(ZeroBase):
         values : tuple[object]
             Output of the operations given the context.
         """
-        return self.get_message(self.build_message(fetches, context, **kwargs))
+        return self.get_message(self.build_message(fetches, context or {}, **kwargs))
 
     def map(self, fetches, contexts, *, batch_size=1, max_messages=1, **kwargs):
         """
@@ -338,6 +338,7 @@ class Processor(ZeroBase):  # pragma: no cover
             identifier = message[:self.IDENTIFIER_SIZE]
             command = message[self.IDENTIFIER_SIZE]
             status = b'\x00'
+            payload = None
             try:
                 payload = self.loads(message[self.IDENTIFIER_SIZE + 1:])
                 try:
@@ -348,10 +349,12 @@ class Processor(ZeroBase):  # pragma: no cover
                     else:
                         status = b'\x03'
                         payload = KeyError("invalid command code: %s" % command)
-                except Exception as payload:  # pylint: disable=broad-except
-                    status = '\x02'
-            except Exception as payload:  # pylint: disable=broad-except
-                status = '\x01'
+                except Exception as ex:  # pylint: disable=broad-except
+                    status = b'\x02'
+                    payload = ex
+            except Exception as ex:  # pylint: disable=broad-except
+                status = b'\x01'
+                payload = ex
             self.pusher.send(b''.join([identifier, status, self.dumps(payload)]))
 
     @classmethod

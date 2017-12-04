@@ -8,6 +8,6 @@ RUN pip install --no-cache-dir -r dev-requirements.txt \
     && ipcluster nbextension enable
 
 # Install the package
-COPY . /workdir
-WORKDIR /workdir
+COPY . /workspace
+WORKDIR /workspace
 RUN pip install -e .
