@@ -55,8 +55,8 @@ def entrypoint(args=None):
                         default=100)
     parser.add_argument('--max-messages', '-m', help='maximum number of messages to publish',
                         type=int, default=3 * multiprocessing.cpu_count())
-    parser.add_argument('--context', '-c', help='context information', nargs='+', default=[],
-                        type=parse_tuple)
+    parser.add_argument('--context', '-c', help='context information in the format '
+                        '`name=type(value)`', action='append', default=[], type=parse_tuple)
     parser.add_argument('fetches', help='names of operations to fetch', nargs='+')
     args = parser.parse_args(args)
 
