@@ -71,7 +71,7 @@ constant = identity  # pylint: disable=invalid-name
 
 
 @opmethod
-def assert_(condition, message=None, *args, value=None):
+def assert_(condition, message=None, *args, value=None):  # pylint: disable=keyword-arg-before-vararg
     """
     Return `value` if the `condition` is satisfied and raise an `AssertionError` with the specified
     `message` and `args` if not.
