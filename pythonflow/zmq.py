@@ -18,9 +18,10 @@ import pickle
 import queue
 import threading
 import uuid
-import zmq
 
-from .util import batch_iterable
+from .util import batch_iterable, lazy_import
+
+zmq = lazy_import('zmq')  # pylint: disable=invalid-name
 
 
 class ZeroBase:  # pylint: disable=too-few-public-methods
