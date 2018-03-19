@@ -196,6 +196,21 @@ def test_conditional():
         graph(z, condition=False)
 
 
+def test_conditional_with_length():
+    def f(a):
+        return a, a
+
+    with pf.Graph() as graph:
+        x = pf.constant(4)
+        y = pf.placeholder(name='y')
+        condition = pf.placeholder(name='condition')
+
+        z1, z2 = pf.conditional(condition, pf.func_op(f, x), pf.func_op(f, y), length=2)
+
+    assert graph([z1, z2], condition=True) == (4, 4)
+    assert graph([z1, z2], condition=False, y=5) == (5, 5)
+
+
 @pytest.mark.parametrize('message', [None, "x should be smaller than %d but got %d"])
 def test_assert_with_dependencies(message):
     with pf.Graph() as graph:
