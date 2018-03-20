@@ -42,7 +42,8 @@ class conditional(Operation):  # pylint: disable=C0103,W0223
     depending on `predicate`.
     """
     def __init__(self, predicate, x, y=None, *, length=None, name=None, dependencies=None):  # pylint: disable=W0235
-        super(conditional, self).__init__(predicate, x, y, length=length, name=name, dependencies=dependencies)
+        super(conditional, self).__init__(predicate, x, y,
+                                          length=length, name=name, dependencies=dependencies)
 
     def evaluate(self, context, callback=None):
         # Evaluate all dependencies first
