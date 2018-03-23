@@ -326,3 +326,39 @@ def test_import():
         isfile = os_.path.isfile(__file__)
 
     assert graph(isfile)
+
+
+def test_tuple():
+    expected = 13
+    with pf.Graph() as graph:
+        a = pf.constant(expected)
+        b = pf.identity((a, a))
+    actual, _ = graph(b)
+    assert actual is expected, "expected %s but got %s" % (expected, actual)
+
+
+def test_list():
+    expected = 13
+    with pf.Graph() as graph:
+        a = pf.constant(expected)
+        b = pf.identity([a, a])
+    actual, _ = graph(b)
+    assert actual is expected, "expected %s but got %s" % (expected, actual)
+
+
+def test_dict():
+    expected = 13
+    with pf.Graph() as graph:
+        a = pf.constant(expected)
+        b = pf.identity({'foo': a})
+    actual = graph(b)['foo']
+    assert actual is expected, "expected %s but got %s" % (expected, actual)
+
+
+def test_slice():
+    with pf.Graph() as graph:
+        a = pf.constant(range(100))
+        b = pf.constant(1)
+        c = a[b:]
+
+    assert len(graph(c)) == 99
