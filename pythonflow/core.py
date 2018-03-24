@@ -66,12 +66,12 @@ class Graph:
         """
         if isinstance(operation, Operation):
             if operation.graph is not self:
-                raise RuntimeError("operation '%s' does not belong to this graph" % operation)
+                raise RuntimeError(f"operation '{operation}' does not belong to this graph")
             return operation
         elif isinstance(operation, str):
             return self.operations[operation]
         else:
-            raise ValueError("'%s' is not an `Operation` instance or operation name" % operation)
+            raise ValueError(f"'{operation}' is not an `Operation` instance or operation name")
 
     def normalize_context(self, context, **kwargs):
         """
@@ -106,14 +106,14 @@ class Graph:
             value = context.pop(operation)
             operation = self.normalize_operation(operation)
             if operation in context:
-                raise ValueError("duplicate value for operation '%s'" % operation)
+                raise ValueError(f"duplicate value for operation '{operation}'")
             context[operation] = value
 
         # Add the keyword arguments
         for name, value in kwargs.items():
             operation = self.operations[name]
             if operation in context:
-                raise ValueError("duplicate value for operation '%s'" % operation)
+                raise ValueError(f"duplicate value for operation '{operation}'")
             context[operation] = value
 
         return context
@@ -254,7 +254,7 @@ class Operation:  # pylint:disable=too-few-public-methods
             If the current name of the operation cannot be found in the associated graph.
         """
         if name in self.graph.operations:
-            raise ValueError("duplicate name '%s'" % name)
+            raise ValueError(f"duplicate name '{name}'")
         if self._name is not None:
             self.graph.operations.pop(self._name)
         self.graph.operations[name] = self
@@ -315,13 +315,23 @@ class Operation:  # pylint:disable=too-few-public-methods
         """
         raise NotImplementedError
 
-    @staticmethod
-    def evaluate_operation(operation, context, **kwargs):
+    @classmethod
+    def evaluate_operation(cls, operation, context, **kwargs):
         """
         Evaluate an operation or constant given a context.
         """
-        return operation.evaluate(context, **kwargs) if isinstance(operation, Operation) \
-            else operation
+        if isinstance(operation, Operation):
+            return operation.evaluate(context, **kwargs)
+        partial = functools.partial(cls.evaluate_operation, context=context, **kwargs)
+        if isinstance(operation, tuple):
+            return tuple(partial(element) for element in operation)
+        if isinstance(operation, list):
+            return [partial(element) for element in operation]
+        if isinstance(operation, dict):
+            return {partial(key): partial(value) for key, value in operation.items()}
+        if isinstance(operation, slice):
+            return slice(*[partial(getattr(operation, attr)) for attr in ['start', 'stop', 'step']])
+        return operation
 
     def __hash__(self):
         return id(self)
