@@ -315,13 +315,23 @@ class Operation:  # pylint:disable=too-few-public-methods
         """
         raise NotImplementedError
 
-    @staticmethod
-    def evaluate_operation(operation, context, **kwargs):
+    @classmethod
+    def evaluate_operation(cls, operation, context, **kwargs):
         """
         Evaluate an operation or constant given a context.
         """
-        return operation.evaluate(context, **kwargs) if isinstance(operation, Operation) \
-            else operation
+        if isinstance(operation, Operation):
+            return operation.evaluate(context, **kwargs)
+        partial = functools.partial(cls.evaluate_operation, context=context, **kwargs)
+        if isinstance(operation, tuple):
+            return tuple(partial(element) for element in operation)
+        if isinstance(operation, list):
+            return [partial(element) for element in operation]
+        if isinstance(operation, dict):
+            return {partial(key): partial(value) for key, value in operation.items()}
+        if isinstance(operation, slice):
+            return slice(*[partial(getattr(operation, attr)) for attr in ['start', 'stop', 'step']])
+        return operation
 
     def __hash__(self):
         return id(self)
