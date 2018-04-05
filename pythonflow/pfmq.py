@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import collections
+
 import logging
 import pickle
 import queue
@@ -24,7 +24,6 @@ import uuid
 
 import zmq
 
-from .util import batch_iterable
 
 LOGGER = logging.getLogger(__name__)
 MAX_INT, = struct.unpack('>I', b'\xff' * 4)
@@ -43,7 +42,7 @@ class _Base:
     def __init__(self, start):
         self._thread = None
         self._cancel_address = f'inproc://{uuid.uuid4().hex}'
-        self._cancel_parent = zmq.Context.instance().socket(zmq.PAIR)
+        self._cancel_parent = zmq.Context.instance().socket(zmq.PAIR)  # pylint: disable=E1101
         self._cancel_parent.bind(self._cancel_address)
 
         if start:
@@ -115,7 +114,7 @@ class Task(_Base):
     start : bool
         Whether to start the event loop as a background thread.
     """
-    def __init__(self, requests, address, dumps=None, loads=None, start=True):
+    def __init__(self, requests, address, dumps=None, loads=None, start=True):  # pylint: disable=too-many-arguments
         self.requests = requests
         self.address = address
         self.dumps = dumps or pickle.dumps
@@ -124,13 +123,13 @@ class Task(_Base):
 
         super(Task, self).__init__(start)
 
-    def run(self):
+    def run(self):  # pylint: disable=too-many-locals
         context = zmq.Context.instance()
         last_identifier = None
         cache = {}
         next_identifier = 0
 
-        with context.socket(zmq.PAIR) as cancel, context.socket(zmq.REQ) as socket:
+        with context.socket(zmq.PAIR) as cancel, context.socket(zmq.REQ) as socket:  # pylint: disable=E1101
             cancel.connect(self._cancel_address)
             socket.connect(self.address)
 
@@ -230,7 +229,7 @@ class Worker(_Base):
     start : bool
         Whether to start the event loop as a background thread.
     """
-    def __init__(self, target, address, dumps=None, loads=None, start=False):
+    def __init__(self, target, address, dumps=None, loads=None, start=False):  # pylint: disable=too-many-arguments
         self.target = target
         self.address = address
         self.dumps = dumps or pickle.dumps
@@ -241,7 +240,7 @@ class Worker(_Base):
     def run(self):
         context = zmq.Context.instance()
 
-        with context.socket(zmq.REQ) as socket, context.socket(zmq.PAIR) as cancel:
+        with context.socket(zmq.REQ) as socket, context.socket(zmq.PAIR) as cancel:  # pylint: disable=E1101
             cancel.connect(self._cancel_address)
             socket.connect(self.address)
             LOGGER.debug('connected to %s', self.address)
@@ -259,9 +258,9 @@ class Worker(_Base):
 
                 # Process messages
                 if sockets.get(socket) == zmq.POLLIN:
-                    client, _, identifier, request = socket.recv_multipart()
+                    client, _, identifier, *request = socket.recv_multipart()
                     LOGGER.debug('received request with identifier %s from %s', identifier, client)
-                    result = self.dumps(self.target(self.loads(request)))
+                    result = self.dumps(self.target(self.loads(*request)))
                     socket.send_multipart([client, _, identifier, result])
                     LOGGER.debug('sent result with identifier %s to %s', identifier, client)
 
@@ -309,13 +308,15 @@ class LoadBalancer(_Base):
         self.frontend_address = frontend_address or f'inproc://{uuid.uuid4().hex}'
         super(LoadBalancer, self).__init__(start)
 
-    def run(self):
+    def run(self):  # pylint: disable=too-many-statements,too-many-locals
         context = zmq.Context.instance()
         workers = set()
         cache = {}
 
+        # pylint: disable=E1101
         with context.socket(zmq.ROUTER) as frontend, context.socket(zmq.ROUTER) as backend, \
             context.socket(zmq.PAIR) as cancel:
+        # pylint: enable=E1101
 
             cancel.connect(self._cancel_address)
             frontend.bind(self.frontend_address)
