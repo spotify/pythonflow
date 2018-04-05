@@ -18,4 +18,3 @@
 from .core import *
 from .operations import *
 from .util import *
-from .zmq import *
