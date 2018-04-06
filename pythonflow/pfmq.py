@@ -29,7 +29,7 @@ LOGGER = logging.getLogger(__name__)
 MAX_INT, = struct.unpack('>I', b'\xff' * 4)
 
 
-class _Base:
+class Base:
     """
     Base class for running a ZeroMQ event loop in a background thread with a PAIR channel for
     cancelling the background thread.
@@ -91,7 +91,7 @@ class _Base:
         raise NotImplementedError
 
 
-class Task(_Base):
+class Task(Base):
     """
     A task that is executed remotely.
 
@@ -207,7 +207,7 @@ class Task(_Base):
         return self.iter_results()
 
 
-class Worker(_Base):
+class Worker(Base):
     """
     A worker for executing remote fetches.
 
@@ -290,9 +290,9 @@ class Worker(_Base):
         return cls(_target, *args, **kwargs)
 
 
-class LoadBalancer(_Base):
+class MessageBroker(Base):
     """
-    Load balancer for tasks that are executed remotely.
+    Message broker for tasks that are executed remotely.
 
     Parameters
     ----------
@@ -306,7 +306,7 @@ class LoadBalancer(_Base):
     def __init__(self, backend_address, frontend_address=None, start=False):
         self.backend_address = backend_address
         self.frontend_address = frontend_address or f'inproc://{uuid.uuid4().hex}'
-        super(LoadBalancer, self).__init__(start)
+        super(MessageBroker, self).__init__(start)
 
     def run(self):  # pylint: disable=too-many-statements,too-many-locals
         context = zmq.Context.instance()
@@ -393,5 +393,7 @@ class LoadBalancer(_Base):
         """
         Convenience method for applying a target to a request remotely.
         """
-        _, result = self.imap([request], **kwargs).results.get()
+        task = self.imap([request], start=False, **kwargs)
+        task.run()
+        _, result = task.results.get()
         return result
