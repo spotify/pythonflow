@@ -85,3 +85,7 @@ Using :code:`imap` rather than using the built-in :code:`map` applied to :code:`
 .. note::
 
     By default, the consumer and processors will use :code:`pickle` to (de)serialize all messages. You may want to consider your own serialization format or use `msgpack <https://msgpack.org/index.html>`_.
+
+.. note::
+
+    Pythonflow `does not resend lost messages <http://zguide.zeromq.org/php:chapter4>`_ and your program will not recover if a message is lost.

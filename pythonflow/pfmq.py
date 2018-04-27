@@ -334,6 +334,7 @@ class MessageBroker(Base):
             poller.register(cancel, zmq.POLLIN)
 
             while True:
+                # Only listen to the backend if no workers are available
                 if workers:
                     LOGGER.debug('polling frontend and backend...')
                     sockets = dict(poller.poll())
