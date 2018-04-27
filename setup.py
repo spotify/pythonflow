@@ -21,7 +21,15 @@ from setuptools import setup, find_packages
 if sys.version_info[0] < 3:
     raise RuntimeError("pythonflow requires python3 but you are using %s" % sys.version)
 
+with open('README.md') as fp:
+    long_description = fp.read()
+
 with open("version.json") as fp:
     kwargs = json.load(fp)  # pylint: disable=invalid-name
 
-setup(packages=find_packages(), **kwargs)
+setup(
+    packages=find_packages(),
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    **kwargs,
+)
