@@ -62,7 +62,19 @@ class conditional(Operation):  # pylint: disable=C0103,W0223
 
 class try_(Operation):  # pylint: disable=C0103,W0223
     """
-    Try to evaluate `operation`, fall back to operations
+    Try to evaluate `operation`, fall back to alternative operations in `except_`, and ensure that
+    `finally_` is evaluated.
+
+    Note that the alternative operations will only be executed if the target operation fails.
+
+    Parameters
+    ----------
+    operation : pf.Operation
+        Operation to evaluate.
+    except_ : list[(exception type, pf.Operation)]
+        List of exception types and corresponding operation to evaluate if it occurs.
+    finally_ : pf.Operation
+        Operation to evaluate irrespective of whether `operation` fails.
     """
     def __init__(self, operation, except_=None, finally_=None, **kwargs):
         except_ = except_ or []
