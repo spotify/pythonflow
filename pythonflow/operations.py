@@ -16,8 +16,10 @@
 
 import functools
 import logging
+import sys
 
 from .core import opmethod, Operation, func_op
+from .util import _noop_callback
 
 
 class placeholder(Operation):  # pylint: disable=C0103,R0903
@@ -52,12 +54,42 @@ class conditional(Operation):  # pylint: disable=C0103,W0223
         predicate, x, y = self.args  # pylint: disable=E0632,C0103
         # Evaluate the predicate and pick the right operation
         predicate = self.evaluate_operation(predicate, context)
-        if callback:
-            with callback(self, context):
-                context[self] = value = self.evaluate_operation(x if predicate else y, context)
-        else:
+        callback = callback or _noop_callback
+        with callback(self, context):
             context[self] = value = self.evaluate_operation(x if predicate else y, context)
         return value
+
+
+class try_(Operation):  # pylint: disable=C0103,W0223
+    """
+    Try to evaluate `operation`, fall back to operations
+    """
+    def __init__(self, operation, except_=None, finally_=None, **kwargs):
+        except_ = except_ or []
+        super(try_, self).__init__(operation, except_, finally_, **kwargs)
+
+    def evaluate(self, context, callback=None):
+        # Evaluate all dependencies first
+        self.evaluate_dependencies(context)
+
+        operation, except_, finally_ = self.args # pylint: disable=E0632,C0103
+        callback = callback or _noop_callback
+        with callback(self, context):
+            try:
+                context[self] = value = self.evaluate_operation(operation, context)
+                return value
+            except:
+                # Check the exceptions
+                _, ex, _ = sys.exc_info()
+                for type_, alternative in except_:
+                    if isinstance(ex, type_):
+                        context[self] = value = self.evaluate_operation(alternative, context)
+                        return value
+                raise
+            finally:
+                if finally_:
+                    self.evaluate_operation(finally_, context)
+
 
 @opmethod
 def identity(value):
