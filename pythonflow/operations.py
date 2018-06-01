@@ -69,11 +69,11 @@ class try_(Operation):  # pylint: disable=C0103,W0223
 
     Parameters
     ----------
-    operation : pf.Operation
+    operation : Operation
         Operation to evaluate.
-    except_ : list[(exception type, pf.Operation)]
+    except_ : list[(type, Operation)]
         List of exception types and corresponding operation to evaluate if it occurs.
-    finally_ : pf.Operation
+    finally_ : Operation
         Operation to evaluate irrespective of whether `operation` fails.
     """
     def __init__(self, operation, except_=None, finally_=None, **kwargs):
