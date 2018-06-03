@@ -389,3 +389,13 @@ def test_try(context, expected):
 
     assert graph(c, context) == expected
     assert finally_reached
+
+
+def test_try_not_caught():
+    with pf.Graph() as graph:
+        a = pf.placeholder()
+        b = pf.placeholder()
+        c = pf.try_(a / b, [(ValueError, 'value-error')])
+
+    with pytest.raises(ZeroDivisionError):
+        graph(c, {a: 1, b: 0})
