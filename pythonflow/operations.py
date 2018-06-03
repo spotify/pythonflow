@@ -159,10 +159,10 @@ def cache_file(operation, filename_template, load=None, dump=None, key=None):
         Operation to cache.
     filename_template : str
         Template for the filename taking a single `key` parameter.
-    load : callable(filename)
+    load : callable(str)
         Callable to retrieve an item from a given file. Should throw `FileNotFoundError` if the file
         does not exist.
-    dump : callable(object, filename)
+    dump : callable(object, str)
         Callable to save the item to a file. The order of arguments differs from the `put` argument
         of `cache` to be compatible with `pickle.dump`, `numpy.save`, etc.
     key : Operation
