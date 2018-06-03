@@ -438,3 +438,13 @@ def test_cache_file():
         # Move the file to a different location and ensure the value is loaded
         os.rename(filename, f"{tmpdir}/{hash((8, 1))}.pkl")
         assert graph(c, {a: 8, b: 1}) == 14
+
+
+def test_try_not_caught():
+    with pf.Graph() as graph:
+        a = pf.placeholder()
+        b = pf.placeholder()
+        c = pf.try_(a / b, [(ValueError, 'value-error')])
+
+    with pytest.raises(ZeroDivisionError):
+        graph(c, {a: 1, b: 0})
