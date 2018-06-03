@@ -16,6 +16,7 @@
 
 import functools
 import logging
+import pickle
 import sys
 
 from .core import opmethod, Operation, func_op
@@ -101,6 +102,84 @@ class try_(Operation):  # pylint: disable=C0103,W0223
             finally:
                 if finally_:
                     self.evaluate_operation(finally_, context)
+
+
+def cache(operation, get, put, key=None):
+    """
+    Cache the values of `operation`.
+
+    Parameters
+    ----------
+    operation : Operation
+        Operation to cache.
+    get : callable(object)
+        Callable to retrieve an item from the cache. Should throw `KeyError` or `FileNotFoundError`
+        if the item is not in the cache.
+    put : callable(object, object)
+        Callable that adds an item to the cache. The first argument is the key, the seconde the
+        value.
+    key : Operation
+        Key for looking up an item in the cache. Defaults to a simple `hash` of the arguments of
+        `operation`.
+
+    Returns
+    -------
+    cached_operation : Operation
+        Cached operation.
+    """
+    if not key:
+        dependencies = operation.args + tuple(operation.kwargs.values())
+        key = func_op(hash, dependencies)
+
+    return try_(
+        func_op(get, key), [
+            ((KeyError, FileNotFoundError),
+             identity(operation, dependencies=[func_op(put, key, operation)]))  # pylint: disable=unexpected-keyword-arg
+        ]
+    )
+
+
+def _pickle_load(filename):
+    with open(filename, 'rb') as fp:  # pylint: disable=invalid-name
+        return pickle.load(fp)
+
+
+def _pickle_dump(value, filename):
+    with open(filename, 'wb') as fp:  # pylint: disable=invalid-name
+        pickle.dump(value, fp)
+
+
+def cache_file(operation, filename_template, load=None, dump=None, key=None):
+    """
+    Cache the values of `operation` in a file.
+
+    Parameters
+    ----------
+    operation : Operation
+        Operation to cache.
+    filename_template : str
+        Template for the filename taking a single `key` parameter.
+    load : callable(str)
+        Callable to retrieve an item from a given file. Should throw `FileNotFoundError` if the file
+        does not exist.
+    dump : callable(object, str)
+        Callable to save the item to a file. The order of arguments differs from the `put` argument
+        of `cache` to be compatible with `pickle.dump`, `numpy.save`, etc.
+    key : Operation
+        Key for looking up an item in the cache. Defaults to a simple `hash` of the arguments of
+        `operation`.
+
+    Returns
+    -------
+    cached_operation : Operation
+        Cached operation.
+    """
+    load = load or _pickle_load
+    dump = dump or _pickle_dump
+
+    return cache(
+        operation, lambda key_: load(filename_template % key_),
+        lambda key_, value: dump(value, filename_template % key_), key)
 
 
 @opmethod
