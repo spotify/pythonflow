@@ -362,3 +362,40 @@ def test_slice():
         c = a[b:]
 
     assert len(graph(c)) == 99
+
+
+def test_bool():
+    with pf.Graph() as graph:
+        a = pf.placeholder()
+
+    assert a
+
+
+@pytest.mark.parametrize('context, expected', [
+    ({'a': 1, 'b': 0}, 'zero-division'),
+    ({'a': 1, 'b': 2}, 0.5),
+])
+def test_try(context, expected):
+    finally_reached = []
+
+    with pf.Graph() as graph:
+        a = pf.placeholder('a')
+        b = pf.placeholder('b')
+        c = pf.try_(
+            a / b,
+            [(ZeroDivisionError, 'zero-division')],
+            pf.func_op(lambda: finally_reached.append('done'))
+        )
+
+    assert graph(c, context) == expected
+    assert finally_reached
+
+
+def test_try_not_caught():
+    with pf.Graph() as graph:
+        a = pf.placeholder()
+        b = pf.placeholder()
+        c = pf.try_(a / b, [(ValueError, 'value-error')])
+
+    with pytest.raises(ZeroDivisionError):
+        graph(c, {a: 1, b: 0})

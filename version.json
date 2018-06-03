@@ -1,7 +1,7 @@
 {
     "name": "pythonflow",
     "description": "Dataflow programming for python",
-    "version": "0.1.9",
+    "version": "0.1.10",
     "author": "Till Hoffmann",
     "author_email": "till@spotify.com",
     "license": "License :: OSI Approved :: Apache Software License",

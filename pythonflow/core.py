@@ -21,6 +21,8 @@ import importlib
 import operator
 import uuid
 
+from .util import _noop_callback
+
 
 class Graph:
     """
@@ -301,12 +303,9 @@ class Operation:  # pylint:disable=too-few-public-methods
         args = [partial(arg) for arg in self.args]
         kwargs = {key: partial(value) for key, value in self.kwargs.items()}
         # Evaluate the operation
-        if callback:
-            with callback(self, context):
-                context[self] = value = self._evaluate(*args, **kwargs)
-        else:
+        callback = callback or _noop_callback
+        with callback(self, context):
             context[self] = value = self._evaluate(*args, **kwargs)
-
         return value
 
     def _evaluate(self, *args, **kwargs):
@@ -332,6 +331,9 @@ class Operation:  # pylint:disable=too-few-public-methods
         if isinstance(operation, slice):
             return slice(*[partial(getattr(operation, attr)) for attr in ['start', 'stop', 'step']])
         return operation
+
+    def __bool__(self):
+        return True
 
     def __hash__(self):
         return id(self)
