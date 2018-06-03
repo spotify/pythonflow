@@ -111,3 +111,8 @@ class Profiler:  # pylint: disable=too-few-public-methods
 
     def __str__(self):
         return "\n".join(['%s: %s' % item for item in self.get_slow_operations(10).items()])
+
+
+@contextlib.contextmanager
+def _noop_callback(*_):
+    yield

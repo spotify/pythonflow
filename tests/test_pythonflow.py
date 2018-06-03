@@ -14,11 +14,14 @@
 
 import io
 import logging
+import os
 import pickle
 import random
+import tempfile
 import uuid
-import pythonflow as pf
+
 import pytest
+import pythonflow as pf
 
 
 def test_consistent_context():
@@ -362,3 +365,86 @@ def test_slice():
         c = a[b:]
 
     assert len(graph(c)) == 99
+
+
+def test_bool():
+    with pf.Graph() as graph:
+        a = pf.placeholder()
+
+    assert a
+
+
+@pytest.mark.parametrize('context, expected', [
+    ({'a': 1, 'b': 0}, 'zero-division'),
+    ({'a': 1, 'b': 2}, 0.5),
+])
+def test_try(context, expected):
+    finally_reached = []
+
+    with pf.Graph() as graph:
+        a = pf.placeholder('a')
+        b = pf.placeholder('b')
+        c = pf.try_(
+            a / b,
+            [(ZeroDivisionError, 'zero-division')],
+            pf.func_op(lambda: finally_reached.append('done'))
+        )
+
+    assert graph(c, context) == expected
+    assert finally_reached
+
+
+def test_cache():
+    calls = []
+    cache = {}
+
+    @pf.opmethod
+    def _cached_add(x, y):
+        calls.append((x, y))
+        return x + y
+
+    with pf.Graph() as graph:
+        a = pf.placeholder()
+        b = pf.placeholder()
+        c = pf.cache(_cached_add(a, b), cache.__getitem__, cache.setdefault)
+
+    for _ in range(3):
+        assert graph(c, {a: 1, b: 2}) == 3
+        assert len(calls) == 1
+        assert len(cache) == 1
+
+    # Modify the cache value
+    key, = cache.keys()
+    assert key == hash((1, 2))
+    cache[key] = -1
+    assert graph(c, {a: 1, b: 2}) == -1
+
+    # Check another call
+    assert graph(c, {a: 1, b: 4}) == 5
+    assert len(calls) == 2
+    assert len(cache) == 2
+
+
+def test_cache_file():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with pf.Graph() as graph:
+            a = pf.placeholder()
+            b = pf.placeholder()
+            c = pf.cache_file(a + b, f"{tmpdir}/%s.pkl")
+
+        assert graph(c, {a: 5, b: 9}) == 14
+        filename = f"{tmpdir}/{hash((5, 9))}.pkl"
+        assert os.path.isfile(filename)
+        # Move the file to a different location and ensure the value is loaded
+        os.rename(filename, f"{tmpdir}/{hash((8, 1))}.pkl")
+        assert graph(c, {a: 8, b: 1}) == 14
+
+
+def test_try_not_caught():
+    with pf.Graph() as graph:
+        a = pf.placeholder()
+        b = pf.placeholder()
+        c = pf.try_(a / b, [(ValueError, 'value-error')])
+
+    with pytest.raises(ZeroDivisionError):
+        graph(c, {a: 1, b: 0})

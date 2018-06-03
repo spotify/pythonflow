@@ -299,6 +299,27 @@ Sometimes you may want to evaluate different parts of the DAG depending on a con
 
 Note that the :code:`pf.conditional` operation only evaluates the part of the DAG it requires to return a value. If it evaluated the entire graph, the evaluation above would have raised a :code:`ValueError` because we did not provide a value for the placeholder :code:`validation_data`.
 
+Try-except-finally operations
+-----------------------------
+
+The :code:`try_` operation allows you to evaluate an operation and fall back to alternatives if the operation fails. For example, you may want to handle divisions by zero like so.
+
+.. testcode::
+
+    with pf.Graph() as graph:
+        a = pf.placeholder('a')
+        b = pf.placeholder('b')
+        c = pf.try_(a / b, [(ZeroDivisionError, "check your inputs")])
+
+.. doctest::
+
+    >>> graph(c, a=3, b=2)
+    1.5
+    >>> graph(c, a=3, b=0)
+    'check your inputs'
+
+You can also use the :code:`finally_` argument to ensure an operation is evaluated irrespective of whether another operation succeeds or fails.
+
 Explicitly controlling dependencies
 -----------------------------------
 
