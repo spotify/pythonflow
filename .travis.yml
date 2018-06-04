@@ -3,11 +3,9 @@ python:
 - '3.6'
 cache: pip
 install:
-- pip install -r dev-requirements.txt
-- pip install -e .
+- make install
 script:
-- make tests
-- make docs
+- make
 deploy:
   provider: pypi
   skip_existing: true

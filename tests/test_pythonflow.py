@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import io
-import logging
 import os
 import pickle
 import random
@@ -242,21 +240,6 @@ def test_assert_with_value():
     assert graph(assertion, x=9) == 18
     with pytest.raises(AssertionError):
         graph(assertion, x=11)
-
-
-@pytest.mark.parametrize('level', ['debug', 'info', 'warning', 'error', 'critical'])
-def test_logger(level):
-    with pf.Graph() as graph:
-        logger = pf.Logger(uuid.uuid4().hex)
-        log1 = logger.log(level, "this is a %s message", "test")
-        log2 = getattr(logger, level)("this is another %s message", "test")
-
-    # Add a handler to the logger
-    stream = io.StringIO()
-    logger.logger.setLevel(logging.DEBUG)
-    logger.logger.addHandler(logging.StreamHandler(stream))
-    graph([log1, log2])
-    assert stream.getvalue() == "this is a test message\nthis is another test message\n"
 
 
 @pytest.mark.parametrize('format_string, args, kwargs', [
