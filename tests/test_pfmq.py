@@ -88,3 +88,5 @@ def test_task_timeout(backend_address):
     task.run()
     duration = time.time() - start
     assert duration > .3
+    with pytest.raises(TimeoutError):
+        list(task)
