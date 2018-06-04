@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import sys
+import json
 from setuptools import setup, find_packages
 
 if sys.version_info[0] < 3:
@@ -23,21 +24,12 @@ if sys.version_info[0] < 3:
 with open('README.md') as fp:
     long_description = fp.read()
 
+with open('version.json') as fp:
+    kwargs = json.load(fp)
+
 setup(
-    name="pythonflow",
-    description="Dataflow programming for python",
-    version="0.2.0",
-    author="Till Hoffmann",
-    author_email="till@spotify.com",
-    license="License :: OSI Approved :: Apache Software License",
-    classifiers=[
-        "Development Status :: 3 - Alpha",
-        "Programming Language :: Python :: 3",
-        "Topic :: Scientific/Engineering :: Artificial Intelligence",
-        "Topic :: Utilities"
-    ],
-    url="https://github.com/spotify/pythonflow",
     packages=find_packages(),
     long_description=long_description,
     long_description_content_type="text/markdown",
+    **kwargs
 )

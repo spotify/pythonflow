@@ -395,30 +395,6 @@ To make the definition of graphs less verbose, you can also specify the return v
    AssertionError: height must be positive but got -1.800000
 
 
-Logging
--------
-
-No software is complete without the ability to log information for later analysis or monitoring. Pythonflow supports logging through the standard python `logging module <https://docs.python.org/3/library/logging.html>`_ like so.
-
-
-.. testcode::
-
-   import logging
-   import sys
-   logging.basicConfig(stream=sys.stdout)
-
-   with pf.Graph() as graph:
-       logger = pf.Logger()
-       tea_temperature = pf.placeholder('tea_temperature')
-       with pf.control_dependencies([pf.conditional(tea_temperature > 80, logger.warning('the tea is too hot'))]):
-           tea_temperature = pf.identity(tea_temperature)
-
-.. doctest::
-
-   >>> graph(tea_temperature, tea_temperature=85)  # doctest: +SKIP
-   WARNING:root:the tea is too hot
-   85
-
 Profiling and callbacks
 -----------------------
 

@@ -20,7 +20,7 @@ import pickle
 import sys
 
 from .core import opmethod, Operation, func_op
-from .util import _noop_callback
+from .util import _noop_callback, deprecated
 
 
 class placeholder(Operation):  # pylint: disable=C0103,R0903
@@ -220,7 +220,8 @@ def str_format(format_string, *args, **kwargs):
     return format_string.format(*args, **kwargs)
 
 
-class Logger:
+@deprecated
+class Logger:  # pragma: no cover
     """
     Wrapper for a standard python logging channel with the specified `logger_name`.
 
