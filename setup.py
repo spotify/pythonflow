@@ -14,12 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
 import json
 from setuptools import setup, find_packages
-
-if sys.version_info[0] < 3:
-    raise RuntimeError("pythonflow requires python3 but you are using %s" % sys.version)
 
 with open('README.md') as fp:
     long_description = fp.read()

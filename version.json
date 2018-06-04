@@ -11,5 +11,6 @@
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
         "Topic :: Utilities"
     ],
-    "url": "https://github.com/spotify/pythonflow"
+    "url": "https://github.com/spotify/pythonflow",
+    "python_requires": ">=3"
 }
