@@ -66,7 +66,7 @@ def test_cancel_task():
 
 
 def test_imap(broker, workers):
-    requests = [{'fetches': 'z', 'context': {'x': 1, 'y': 3 + i}} for i in range(20)]
+    requests = [{'fetches': 'z', 'context': {'x': 1, 'y': 3 + i}} for i in range(200)]
     task = broker.imap(requests)
     for i, result in enumerate(task):
         assert result == i + 4
