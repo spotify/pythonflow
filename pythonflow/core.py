@@ -120,7 +120,7 @@ class Graph:
 
         return context
 
-    def __call__(self, fetches, context=None, *, callback=None, **kwargs):
+    def apply(self, fetches, context=None, *, callback=None, **kwargs):
         """
         Evaluate one or more operations given a context.
 
@@ -160,6 +160,8 @@ class Graph:
         context = self.normalize_context(context, **kwargs)
         values = [fetch.evaluate(context, callback=callback) for fetch in fetches]
         return values[0] if single else tuple(values)
+
+    __call__ = apply
 
     def __getitem__(self, name):
         return self.operations[name]

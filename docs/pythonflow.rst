@@ -16,7 +16,7 @@ pythonflow package
     :undoc-members:
     :show-inheritance:
 
-.. automodule:: pythonflow.zmq
+.. automodule:: pythonflow.pfmq
     :members:
     :undoc-members:
     :show-inheritance:

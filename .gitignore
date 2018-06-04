@@ -90,6 +90,7 @@ ENV/
 
 # Playground for experiments
 playground/
+~*
 
 # OSX files
 .DS_Store
@@ -97,8 +98,8 @@ playground/
 # VS Code project settings
 .vscode/
 
-# Docker run CLI
-.dr
+# Docker interface
+di.yml
 
 # Data for examples
 mldata/

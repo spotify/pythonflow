@@ -1,6 +1,6 @@
 # pylint: disable=missing-docstring
 # pylint: enable=missing-docstring
-# Copyright 2017 Spotify AB
+# Copyright 2018 Spotify AB
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pylint: disable=wildcard-import
-from .core import *
-from .operations import *
-from .util import *
+from .task import Task
+from .broker import Broker
+from .worker import Worker
