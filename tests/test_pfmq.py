@@ -1,5 +1,6 @@
 import multiprocessing
 import time
+import random
 import uuid
 import pytest
 import pythonflow as pf
@@ -24,11 +25,13 @@ def workers(broker):
     with pf.Graph() as graph:
         x = pf.placeholder('x')
         y = pf.placeholder('y')
-        z = (x + y).set_name('z')
+        sleep = pf.func_op(time.sleep, pf.func_op(random.uniform, 0, .1))
+        with pf.control_dependencies([sleep]):
+            z = (x + y).set_name('z')
 
     # Create multiple workers
     _workers = []
-    while len(_workers) < 3:
+    while len(_workers) < 10:
         worker = pfmq.Worker.from_graph(graph, broker.backend_address)
         worker.run_async()
         _workers.append(worker)
