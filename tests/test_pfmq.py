@@ -1,4 +1,3 @@
-import multiprocessing
 import time
 import random
 import uuid
@@ -17,7 +16,8 @@ def broker(backend_address):
     b = pfmq.Broker(backend_address)
     b.run_async()
     yield b
-    b.cancel()
+    if b.is_alive:
+        b.cancel()
 
 
 @pytest.fixture
@@ -27,7 +27,9 @@ def workers(broker):
         y = pf.placeholder('y')
         sleep = pf.func_op(time.sleep, pf.func_op(random.uniform, 0, .1))
         with pf.control_dependencies([sleep]):
-            z = (x + y).set_name('z')
+            (x / y).set_name('z')
+        # Can't pickle entire modules
+        pf.constant(pf).set_name('not_pickleable')
 
     # Create multiple workers
     _workers = []
@@ -53,13 +55,19 @@ def test_workers_running(workers):
 def test_apply(broker, workers):
     request = {'fetches': 'z', 'context': {'x': 1, 'y': 3}}
     result = broker.apply(request)
-    assert result == 4
+    assert result == 1 / 3
+
+
+def test_apply_error(broker, workers):
+    request = {'fetches': 'z', 'context': {'x': 1, 'y': 0}}
+    with pytest.raises(ZeroDivisionError):
+        broker.apply(request)
 
 
 def test_apply_batch(broker, workers):
     request = {'fetches': 'z', 'contexts': [{'x': 1, 'y': 3 + i} for i in range(5)]}
     result = broker.apply(request)
-    assert result == [4 + i for i in range(5)]
+    assert result == [1 / (3 + i) for i in range(5)]
 
 
 def test_cancel_task():
@@ -72,7 +80,7 @@ def test_imap(broker, workers):
     requests = [{'fetches': 'z', 'context': {'x': 1, 'y': 3 + i}} for i in range(200)]
     task = broker.imap(requests)
     for i, result in enumerate(task):
-        assert result == i + 4
+        assert result == 1 / (3 + i)
     # Make sure the task finishes
     task._thread.join()
 
@@ -93,3 +101,19 @@ def test_task_timeout(backend_address):
     assert duration > .3
     with pytest.raises(TimeoutError):
         list(task)
+
+
+def test_cancel_not_running(broker):
+    broker.cancel()
+    with pytest.raises(RuntimeError):
+        broker.cancel()
+
+
+def test_not_pickleable(broker, workers):
+    with pytest.raises(pfmq.SerializationError):
+        broker.apply({'fetches': 'not_pickleable', 'context': {}})
+
+
+def test_no_context(broker, workers):
+    with pytest.raises(KeyError):
+        broker.apply({})

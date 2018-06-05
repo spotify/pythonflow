@@ -83,28 +83,31 @@ class Broker(Base):
                     LOGGER.debug('received CANCEL signal on %s', self._cancel_address)
                     break
 
-                # Receive results or sign-up messages from the backend
+                # Receive responses or sign-up messages from the backend
                 if sockets.get(backend) == zmq.POLLIN:
                     worker, _, client, *message = backend.recv_multipart()
                     workers.add(worker)
 
                     if client:
-                        _, identifier, result = message
-                        LOGGER.debug('received RESPONSE with identifier %s from %s for %s',
-                                     int.from_bytes(identifier, 'little'), worker, client)
+                        _, identifier, status, response = message
+                        LOGGER.debug(
+                            'received RESPONSE with identifier %s from %s for %s with status %s',
+                            int.from_bytes(identifier, 'little'), worker, client,
+                            self.STATUS[status]
+                        )
                         # Try to forward the message to a waiting client
                         try:
                             clients.remove(client)
-                            frontend.send_multipart([client, _, identifier, result])
+                            self._forward_response(frontend, client, identifier, status, response)
                         # Add it to the cache otherwise
                         except KeyError:
-                            cache.setdefault(client, []).append((identifier, result))
+                            cache.setdefault(client, []).append((identifier, status, response))
                     else:
                         LOGGER.debug('received SIGN-UP message from %s; now %d workers', worker,
                                      len(workers))
                     del worker
 
-                # Receive requests from the frontend and forward to the workers or return results
+                # Receive requests from the frontend, forward to the workers, and return responses
                 if sockets.get(frontend) == zmq.POLLIN:
                     client, _, identifier, *request = frontend.recv_multipart()
                     LOGGER.debug('received REQUEST with byte identifier %s from %s',
@@ -117,20 +120,24 @@ class Broker(Base):
                                      int.from_bytes(identifier, 'little'), client, worker)
 
                     try:
-                        identifier, result = cache[client].pop(0)
-                        frontend.send_multipart([client, _, identifier, result])
-                        LOGGER.debug('forwarded RESPONSE with identifier %s to %s',
-                                     int.from_bytes(identifier, 'little'), client)
+                        self._forward_response(frontend, client, *cache[client].pop(0))
                     except (KeyError, IndexError):
                         # Send a dispatch notification if the task sent a new message
                         if identifier:
                             frontend.send_multipart([client, _, _])
                             LOGGER.debug('notified %s of REQUEST dispatch', client)
-                        # Add the task to the list if tasks otherwise
+                        # Add the task to the list of tasks waiting for responses otherwise
                         else:
                             clients.add(client)
 
         LOGGER.debug('exiting communication loop')
+
+    @classmethod
+    def _forward_response(cls, frontend, client, identifier, status, response):
+        frontend.send_multipart([client, b'', identifier, status, response])
+        LOGGER.debug('forwarded RESPONSE with identifier %s to %s with status %s',
+            int.from_bytes(identifier, 'little'), client, cls.STATUS[status]
+        )
 
     def imap(self, requests, **kwargs):
         """
@@ -144,5 +151,5 @@ class Broker(Base):
         """
         task = self.imap([request], start=False, **kwargs)
         task.run()
-        _, result = task.results.get()
-        return result
+        for result in task.iter_results(timeout=0):
+            return result

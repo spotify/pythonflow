@@ -16,6 +16,8 @@
 
 import logging
 import pickle
+import sys
+import traceback
 import uuid
 
 import zmq
@@ -104,12 +106,34 @@ class Worker(Base):
                     # Process messages
                     if sockets.get(socket) == zmq.POLLIN:
                         client, _, identifier, *request = socket.recv_multipart()
-                        LOGGER.debug('received request with identifier %d from %s',
+                        LOGGER.debug('received REQUEST with identifier %d from %s',
                                      int.from_bytes(identifier, 'little'), client)
-                        result = self.dumps(self.target(self.loads(*request)))
-                        socket.send_multipart([client, _, identifier, result])
-                        LOGGER.debug('sent result with identifier %s to %s',
-                                     int.from_bytes(identifier, 'little'), client)
+
+                        try:
+                            response = self.target(self.loads(*request))
+                            status = self.STATUS['ok']
+                        except Exception:
+                            etype, value, tb = sys.exc_info()
+                            response = value, "".join(traceback.format_exception(etype, value, tb))
+                            status = self.STATUS['error']
+                            LOGGER.exception("failed to process REQUEST with identifier %d from %s",
+                                             int.from_bytes(identifier, 'little'), client)
+
+                        try:
+                            response = self.dumps(response)
+                        except Exception:
+                            LOGGER.exception(
+                                "failed to serialise RESPONSE with identifier %d for %s",
+                                int.from_bytes(identifier, 'little'), client
+                            )
+                            response = b""
+                            status = self.STATUS['serialization_error']
+
+                        socket.send_multipart([client, b'', identifier, status, response])
+                        LOGGER.debug(
+                            'sent RESPONSE with identifier %s to %s with status %s',
+                            int.from_bytes(identifier, 'little'), client, self.STATUS[status]
+                        )
 
         LOGGER.error("maximum number of retries (%d) for %s exceeded", self.max_retries,
                      self.address)
@@ -129,5 +153,5 @@ class Worker(Base):
                 return graph(request['fetches'], request['context'])
             elif 'contexts' in request:
                 return [graph(request['fetches'], context) for context in request['contexts']]
-            raise KeyError
+            raise KeyError("`context` or `contexts` must be in the request")
         return cls(_target, *args, **kwargs)

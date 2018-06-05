@@ -41,6 +41,15 @@ class Base:
         if start:
             self.run_async()
 
+    STATUS = {
+        'ok': b'\x00',
+        'end': b'\x01',
+        'error': b'\x02',
+        'timeout': b'\x03',
+        'serialization_error': b'\x04',
+    }
+    STATUS.update({value: key for key, value in STATUS.items()})
+
     @property
     def is_alive(self):
         """
