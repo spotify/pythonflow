@@ -133,11 +133,10 @@ class Broker(Base):
         LOGGER.debug('exiting communication loop')
 
     @classmethod
-    def _forward_response(cls, frontend, client, identifier, status, response):
+    def _forward_response(cls, frontend, client, identifier, status, response):  # pylint: disable=too-many-arguments
         frontend.send_multipart([client, b'', identifier, status, response])
         LOGGER.debug('forwarded RESPONSE with identifier %s to %s with status %s',
-            int.from_bytes(identifier, 'little'), client, cls.STATUS[status]
-        )
+                     int.from_bytes(identifier, 'little'), client, cls.STATUS[status])
 
     def imap(self, requests, **kwargs):
         """

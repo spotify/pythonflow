@@ -212,7 +212,7 @@ class Task(Base):
             if status == 'ok':
                 yield result
             elif status in 'error':
-                value, tb = result
+                value, tb = result  # pylint: disable=invalid-name
                 LOGGER.error(tb)
                 raise value
             elif status == 'timeout':

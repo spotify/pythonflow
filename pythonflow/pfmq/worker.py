@@ -66,7 +66,7 @@ class Worker(Base):
 
         super(Worker, self).__init__(start)
 
-    def run(self):
+    def run(self):  # pylint: disable=too-many-locals
         context = zmq.Context.instance()
         # Use a specific identity for the worker such that reconnects don't change it.
         identity = uuid.uuid4().bytes
@@ -112,8 +112,8 @@ class Worker(Base):
                         try:
                             response = self.target(self.loads(*request))
                             status = self.STATUS['ok']
-                        except Exception:
-                            etype, value, tb = sys.exc_info()
+                        except Exception:  # pylint: disable=broad-except
+                            etype, value, tb = sys.exc_info()  # pylint: disable=invalid-name
                             response = value, "".join(traceback.format_exception(etype, value, tb))
                             status = self.STATUS['error']
                             LOGGER.exception("failed to process REQUEST with identifier %d from %s",
@@ -121,7 +121,7 @@ class Worker(Base):
 
                         try:
                             response = self.dumps(response)
-                        except Exception:
+                        except Exception:  # pylint: disable=broad-except
                             LOGGER.exception(
                                 "failed to serialise RESPONSE with identifier %d for %s",
                                 int.from_bytes(identifier, 'little'), client
