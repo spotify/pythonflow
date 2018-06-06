@@ -18,6 +18,11 @@ def test_batch_iterable():
         assert list(iterable[i * 4:(i + 1) * 4]) == batch
 
 
+def test_batch_iterable_invalid_size():
+    with pytest.raises(ValueError):
+        pf.batch_iterable("", -1)
+
+
 def test_profiling():
     with pf.Graph() as graph:
         duration = pf.placeholder('duration')

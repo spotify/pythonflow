@@ -29,6 +29,12 @@ from ._base import Base
 LOGGER = logging.getLogger(__name__)
 
 
+class SerializationError(RuntimeError):
+    """
+    Error serialising a remote result.
+    """
+
+
 class Task(Base):
     """
     A task that is executed remotely.
@@ -122,7 +128,7 @@ class Task(Base):
                             LOGGER.debug('no more requests; waiting for responses')
 
                     socket.send_multipart(message)
-                    LOGGER.debug('sent request with identifier %s: %s', identifier, message)
+                    LOGGER.debug('sent REQUEST with identifier %s: %s', identifier, message)
 
                     # Add to the list of pending requests
                     if identifier is not None:
@@ -146,7 +152,7 @@ class Task(Base):
                             message = "maximum number of retries (%d) for %s exceeded" % \
                                 (self.max_retries, self.address)
                             LOGGER.error(message)
-                            self.results.put((None, TimeoutError(message)))
+                            self.results.put(('timeout', TimeoutError(message)))
                             return
                         break
 
@@ -155,34 +161,40 @@ class Task(Base):
 
                     # Cancel the communication thread
                     if sockets.get(cancel) == zmq.POLLIN:
-                        LOGGER.debug('received cancel signal on %s', self._cancel_address)
+                        LOGGER.debug('received CANCEL signal on %s', self._cancel_address)
                         return
 
                     if sockets.get(socket) == zmq.POLLIN:
-                        identifier, *result = socket.recv_multipart()
+                        identifier, *response = socket.recv_multipart()
                         if not identifier:
                             LOGGER.debug('received dispatch notification')
                             continue
 
                         # Decode the identifier and remove the corresponding request from `pending`
                         identifier = int.from_bytes(identifier, 'little')
-                        LOGGER.debug('received result for identifier %d (next: %d, end: %s)',
+                        LOGGER.debug('received RESPONSE for identifier %d (next: %d, end: %s)',
                                      identifier, next_identifier, last_identifier)
                         pending.pop(identifier, None)
 
                         # Drop the message if it is outdated
                         if identifier < next_identifier:  # pragma: no cover
-                            LOGGER.debug('dropped message with identifier %d (next: %d)',
+                            LOGGER.debug('dropped RESPONSE with identifier %d (next: %d)',
                                          identifier, next_identifier)
                             continue
 
                         # Add the message to the cache
-                        cache[identifier] = self.loads(*result)
+                        cache[identifier] = response
                         while True:
                             try:
-                                self.results.put((next_identifier, cache.pop(next_identifier)))
+                                status, response = cache.pop(next_identifier)
+                                status = self.STATUS[status]
+                                self.results.put(
+                                    (status, identifier if status == 'serialization_error' else
+                                     self.loads(response))
+                                )
+
                                 if next_identifier == last_identifier:
-                                    self.results.put((None, None))
+                                    self.results.put(('end', None))
                                     return
                                 next_identifier += 1
                             except KeyError:
@@ -198,12 +210,23 @@ class Task(Base):
             Timeout for getting results.
         """
         while True:
-            identifier, result = self.results.get(timeout=timeout)
-            if identifier is None:
-                if result:
-                    raise result
-                break
-            yield result
+            status, result = self.results.get(timeout=timeout)
+            if status == 'ok':
+                yield result
+            elif status in 'error':
+                value, tb = result  # pylint: disable=invalid-name
+                LOGGER.error(tb)
+                raise value
+            elif status == 'timeout':
+                raise result
+            elif status == 'end':
+                return
+            elif status == 'serialization_error':
+                raise SerializationError(
+                    "failed to serialize result for request with identifier %s" % result
+                )
+            else:
+                raise KeyError(status)  # pragma: no cover
 
     def __iter__(self):
         return self.iter_results()

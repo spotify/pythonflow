@@ -2,13 +2,13 @@
 
 all : tests docs
 
-tests : lint_tests code_tests
+tests : code_tests lint_tests
 
 lint_tests :
 	pylint pythonflow
 
 code_tests :
-	py.test --cov pythonflow --cov-fail-under=100 --cov-report=term-missing --cov-report=html --verbose --durations=5
+	py.test --cov pythonflow --cov-fail-under=100 --cov-report=term-missing --cov-report=html --verbose --durations=5 -s
 
 docs :
 	sphinx-build -b doctest docs build

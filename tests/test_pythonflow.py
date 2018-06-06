@@ -292,6 +292,12 @@ def test_lazy_constant():
     assert time.time() - start < 0.01
 
 
+def test_lazy_constant_not_callable():
+    with pytest.raises(ValueError):
+        with pf.Graph() as graph:
+            pf.lazy_constant(None)
+
+
 def test_graph_pickle():
     with pf.Graph() as graph:
         x = pf.placeholder('x')
@@ -304,6 +310,17 @@ def test_graph_pickle():
     graph = pickle.loads(pickled)
     actual = graph('y', x=_x)
     assert desired == actual
+
+
+def test_no_default_graph():
+    with pytest.raises(ValueError):
+        pf.placeholder()
+
+
+def test_unpack_without_length():
+    with pytest.raises(TypeError):
+        with pf.Graph():
+            _1, _2 = pf.placeholder()
 
 
 def test_import():
@@ -431,3 +448,37 @@ def test_try_not_caught():
 
     with pytest.raises(ZeroDivisionError):
         graph(c, {a: 1, b: 0})
+
+
+def test_invalid_fetches():
+    with pf.Graph():
+        a = pf.placeholder()
+    graph = pf.Graph()
+
+    with pytest.raises(RuntimeError):
+        graph(a)
+
+    with pytest.raises(KeyError):
+        graph('a')
+
+    with pytest.raises(ValueError):
+        graph(123)
+
+
+def test_invalid_context():
+    with pytest.raises(ValueError):
+        pf.Graph().apply([], "not-a-mapping")
+
+    with pytest.raises(ValueError):
+        pf.Graph().apply([], {123: None})
+
+
+def test_duplicate_value():
+    with pf.Graph() as graph:
+        a = pf.placeholder('a')
+
+    with pytest.raises(ValueError):
+        graph([], {a: 1}, a=1)
+
+    with pytest.raises(ValueError):
+        graph([], {a: 1, 'a': 1})

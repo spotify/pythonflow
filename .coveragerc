@@ -4,8 +4,7 @@ exclude_lines =
     # Have to re-enable the standard pragma
     pragma: no cover
 
-    # Don't complain if tests don't raise exceptions
-    raise
+    raise NotImplementedError
 
     # Don't complain about representations not being covered
     __repr__
