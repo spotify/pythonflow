@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import builtins
 import collections
 import contextlib
 import functools
@@ -350,7 +351,7 @@ class Operation:  # pylint:disable=too-few-public-methods
         for i in range(num):
             yield self[i]
 
-    # pylint: disable=E1123
+    # pylint: disable=
     def __getattr__(self, name):
         return getattr_(self, name, graph=self.graph)
 
@@ -470,7 +471,7 @@ class Operation:  # pylint:disable=too-few-public-methods
 
     def __call__(self, *args, **kwargs):
         return call(self, *args, **kwargs)
-    # pylint: enable=E1123
+    # pylint: enable=
 
 
 class func_op(Operation):  # pylint: disable=C0103,R0903
@@ -513,48 +514,6 @@ def opmethod(target=None, **kwargs):
     return _wrapper
 
 
-# pylint: disable=C0103
-abs_ = opmethod(abs)
-add = opmethod(operator.add)
-and_ = opmethod(operator.and_)
-contains = opmethod(operator.contains)
-eq = opmethod(operator.eq)
-floordiv = opmethod(operator.floordiv)
-ge = opmethod(operator.ge)
-getattr_ = opmethod(getattr)
-getitem = opmethod(operator.getitem)
-gt = opmethod(operator.gt)
-inv = opmethod(operator.inv)
-le = opmethod(operator.le)
-lshift = opmethod(operator.lshift)
-lt = opmethod(operator.lt)
-matmul = opmethod(operator.matmul)
-methodcaller = opmethod(operator.methodcaller)
-mod = opmethod(operator.mod)
-mul = opmethod(operator.mul)
-ne = opmethod(operator.ne)
-neg = opmethod(operator.neg)
-not_ = opmethod(operator.not_)
-or_ = opmethod(operator.or_)
-pos = opmethod(operator.pos)
-pow_ = opmethod(operator.pow)
-rshift = opmethod(operator.rshift)
-sub = opmethod(operator.sub)
-truediv = opmethod(operator.truediv)
-xor = opmethod(operator.xor)
-map_ = opmethod(map)
-sum_ = opmethod(sum)
-zip_ = opmethod(zip)
-filter_ = opmethod(filter)
-list_ = opmethod(list)
-tuple_ = opmethod(tuple)
-reversed_ = opmethod(reversed)
-print_ = opmethod(print)
-format_ = opmethod(format)
-import_ = opmethod(importlib.import_module)
-# pylint: enable=C0103
-
-
 @opmethod
 def call(func, *args, **kwargs):
     """
@@ -589,3 +548,118 @@ def control_dependencies(dependencies, graph=None):
     yield
     # Remove dependencies from the graph
     del graph.dependencies[-len(dependencies):]
+
+
+# pylint: disable=C0103
+abs_ = opmethod(builtins.abs)
+dict_ = opmethod(builtins.dict)
+help_ = opmethod(builtins.help)
+min_ = opmethod(builtins.min)
+setattr_ = opmethod(builtins.setattr)
+all_ = opmethod(builtins.all)
+dir_ = opmethod(builtins.dir)
+hex_ = opmethod(builtins.hex)
+next_ = opmethod(builtins.next)
+slice_ = opmethod(builtins.slice)
+any_ = opmethod(builtins.any)
+divmod_ = opmethod(builtins.divmod)
+id_ = opmethod(builtins.id)
+object_ = opmethod(builtins.object)
+sorted_ = opmethod(builtins.sorted)
+ascii_ = opmethod(builtins.ascii)
+enumerate_ = opmethod(builtins.enumerate)
+input_ = opmethod(builtins.input)
+oct_ = opmethod(builtins.oct)
+staticmethod_ = opmethod(builtins.staticmethod)
+bin_ = opmethod(builtins.bin)
+eval_ = opmethod(builtins.eval)
+int_ = opmethod(builtins.int)
+open_ = opmethod(builtins.open)
+str_ = opmethod(builtins.str)
+bool_ = opmethod(builtins.bool)
+exec_ = opmethod(builtins.exec)
+isinstance_ = opmethod(builtins.isinstance)
+ord_ = opmethod(builtins.ord)
+sum_ = opmethod(builtins.sum)
+bytearray_ = opmethod(builtins.bytearray)
+filter_ = opmethod(builtins.filter)
+issubclass_ = opmethod(builtins.issubclass)
+pow_ = opmethod(builtins.pow)
+super_ = opmethod(builtins.super)
+bytes_ = opmethod(builtins.bytes)
+float_ = opmethod(builtins.float)
+iter_ = opmethod(builtins.iter)
+print_ = opmethod(builtins.print)
+tuple_ = opmethod(builtins.tuple)
+callable_ = opmethod(builtins.callable)
+format_ = opmethod(builtins.format)
+len_ = opmethod(builtins.len)
+property_ = opmethod(builtins.property)
+type_ = opmethod(builtins.type)
+chr_ = opmethod(builtins.chr)
+frozenset_ = opmethod(builtins.frozenset)
+list_ = opmethod(builtins.list)
+range_ = opmethod(builtins.range)
+vars_ = opmethod(builtins.vars)
+classmethod_ = opmethod(builtins.classmethod)
+getattr_ = opmethod(builtins.getattr)
+locals_ = opmethod(builtins.locals)
+repr_ = opmethod(builtins.repr)
+zip_ = opmethod(builtins.zip)
+compile_ = opmethod(builtins.compile)
+globals_ = opmethod(builtins.globals)
+map_ = opmethod(builtins.map)
+reversed_ = opmethod(builtins.reversed)
+complex_ = opmethod(builtins.complex)
+hasattr_ = opmethod(builtins.hasattr)
+max_ = opmethod(builtins.max)
+round_ = opmethod(builtins.round)
+delattr_ = opmethod(builtins.delattr)
+hash_ = opmethod(builtins.hash)
+memoryview_ = opmethod(builtins.memoryview)
+set_ = opmethod(builtins.set)
+
+add = opmethod(operator.add)
+and_ = opmethod(operator.and_)
+attrgetter = opmethod(operator.attrgetter)
+concat = opmethod(operator.concat)
+contains = opmethod(operator.contains)
+countOf = opmethod(operator.countOf)
+delitem = opmethod(operator.delitem)
+eq = opmethod(operator.eq)
+floordiv = opmethod(operator.floordiv)
+ge = opmethod(operator.ge)
+getitem = opmethod(operator.getitem)
+gt = opmethod(operator.gt)
+index = opmethod(operator.index)
+indexOf = opmethod(operator.indexOf)
+inv = opmethod(operator.inv)
+invert = opmethod(operator.invert)
+ior = opmethod(operator.ior)
+ipow = opmethod(operator.ipow)
+irshift = opmethod(operator.irshift)
+is_ = opmethod(operator.is_)
+is_not = opmethod(operator.is_not)
+itemgetter = opmethod(operator.itemgetter)
+le = opmethod(operator.le)
+length_hint = opmethod(operator.length_hint)
+lshift = opmethod(operator.lshift)
+lt = opmethod(operator.lt)
+matmul = opmethod(operator.matmul)
+methodcaller = opmethod(operator.methodcaller)
+mod = opmethod(operator.mod)
+mul = opmethod(operator.mul)
+ne = opmethod(operator.ne)
+neg = opmethod(operator.neg)
+not_ = opmethod(operator.not_)
+or_ = opmethod(operator.or_)
+pos = opmethod(operator.pos)
+rshift = opmethod(operator.rshift)
+setitem = opmethod(operator.setitem)
+sub = opmethod(operator.sub)
+truediv = opmethod(operator.truediv)
+truth = opmethod(operator.truth)
+xor = opmethod(operator.xor)
+
+import_ = opmethod(importlib.import_module)
+# pylint: enable=C0103
