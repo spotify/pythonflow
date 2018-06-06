@@ -19,7 +19,7 @@ import logging
 import pickle
 import sys
 
-from .core import opmethod, Operation, func_op
+from .core import opmethod, Operation, func_op, hash_
 from .util import _noop_callback, deprecated
 
 
@@ -129,7 +129,7 @@ def cache(operation, get, put, key=None):
     """
     if not key:
         dependencies = operation.args + tuple(operation.kwargs.values())
-        key = func_op(hash, dependencies)
+        key = hash_(dependencies)
 
     return try_(
         func_op(get, key), [
