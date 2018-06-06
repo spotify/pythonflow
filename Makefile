@@ -2,7 +2,7 @@
 
 all : tests docs
 
-tests : lint_tests code_tests
+tests : code_tests lint_tests
 
 lint_tests :
 	pylint pythonflow

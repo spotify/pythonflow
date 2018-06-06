@@ -187,10 +187,12 @@ class Task(Base):
                         while True:
                             try:
                                 status, response = cache.pop(next_identifier)
-                                if status != self.STATUS['serialization_error']:
-                                    self.results.put((self.STATUS[status], self.loads(response)))
-                                else:
-                                    self.results.put((self.STATUS[status], identifier))
+                                status = self.STATUS[status]
+                                self.results.put(
+                                    (status, identifier if status == 'serialization_error' else
+                                     self.loads(response))
+                                )
+
                                 if next_identifier == last_identifier:
                                     self.results.put(('end', None))
                                     return
