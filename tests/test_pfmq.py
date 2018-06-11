@@ -109,6 +109,18 @@ def test_cancel_not_running(broker):
         broker.cancel()
 
 
+def test_imap_not_running(broker):
+    broker.cancel()
+    with pytest.raises(RuntimeError):
+        broker.imap([])
+
+
+def test_apply_not_running(broker):
+    broker.cancel()
+    with pytest.raises(RuntimeError):
+        broker.apply(None)
+
+
 def test_not_pickleable(broker, workers):
     with pytest.raises(pfmq.SerializationError):
         broker.apply({'fetches': 'not_pickleable', 'context': {}})

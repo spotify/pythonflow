@@ -142,12 +142,17 @@ class Broker(Base):
         """
         Convenience method for applying a target to requests remotely.
         """
+        if not self.is_alive:
+            raise RuntimeError("broker is not running")
         return Task(requests, self.frontend_address, **kwargs)
 
     def apply(self, request, **kwargs):
         """
         Convenience method for applying a target to a request remotely.
         """
+        if not self.is_alive:
+            raise RuntimeError("broker is not running")
+
         task = self.imap([request], start=False, **kwargs)
         task.run()
         for result in task.iter_results(timeout=0):
