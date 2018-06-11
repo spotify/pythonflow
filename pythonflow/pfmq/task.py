@@ -35,7 +35,7 @@ class SerializationError(RuntimeError):
     """
 
 
-class Task(Base):
+class Task(Base):  # pylint: disable=too-many-instance-attributes
     """
     A task that is executed remotely.
 
@@ -61,14 +61,18 @@ class Task(Base):
         Number of seconds before a request times out.
     max_retries : int
         Number of retry attempts.
+    cache_size : int
+        Maximum number of results to cache. If `cache_size <= 0`, the cache is infinite which can
+        lead to the exhaustion of memory resources.
     """
     def __init__(self, requests, address, dumps=None, loads=None, start=True, timeout=10,  # pylint: disable=too-many-arguments
-                 max_retries=3):
+                 max_retries=3, max_results=1024):
         self.requests = requests
         self.address = address
         self.dumps = dumps or pickle.dumps
         self.loads = loads or pickle.loads
-        self.results = queue.Queue()
+        self.max_results = max_results
+        self.results = queue.Queue(self.max_results)
         self.timeout = timeout
         self.max_retries = max_retries
 
