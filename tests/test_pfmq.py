@@ -16,8 +16,7 @@ def broker(backend_address):
     b = pfmq.Broker(backend_address)
     b.run_async()
     yield b
-    if b.is_alive:
-        b.cancel()
+    b.cancel()
 
 
 @pytest.fixture
@@ -96,9 +95,10 @@ def test_task_context(broker, workers, requests):
     task._thread.join()
 
 def test_task_context_not_started(broker, workers, requests):
-    with pytest.raises(RuntimeError):
-        with broker.imap(requests, start=False):
-            pass
+    with broker.imap(requests, start=False) as task:
+        assert task.is_alive
+    task._thread.join()
+
 
 def test_worker_timeout(backend_address):
     worker = pfmq.Worker(lambda: None, backend_address, timeout=.1, max_retries=3)
@@ -120,9 +120,8 @@ def test_task_timeout(backend_address):
 
 def test_cancel_not_running(broker):
     broker.cancel()
-    with pytest.raises(RuntimeError):
-        broker.cancel()
-
+    assert not broker.is_alive
+    broker.cancel()
 
 def test_imap_not_running(broker):
     broker.cancel()
