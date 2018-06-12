@@ -19,7 +19,7 @@ import uuid
 import zmq
 
 from ._base import Base
-from .task import Task
+from .task import Task, apply
 
 
 LOGGER = logging.getLogger(__name__)
@@ -140,7 +140,17 @@ class Broker(Base):
 
     def imap(self, requests, **kwargs):
         """
-        Convenience method for applying a target to requests remotely.
+        Process a sequence of requests remotely.
+
+        Parameters
+        ----------
+        requsests : iterable
+            Sequence of requests to process.
+
+        Returns
+        -------
+        task : Task
+            Remote task that can be iterated over.
         """
         if not self.is_alive:
             raise RuntimeError("broker is not running")
@@ -148,12 +158,19 @@ class Broker(Base):
 
     def apply(self, request, **kwargs):
         """
-        Convenience method for applying a target to a request remotely.
+        Process a request remotely.
+
+        Parameters
+        ----------
+        request : object
+            Request to process.
+
+        Returns
+        -------
+        ressult : object
+            Result of remotely-processed request.
         """
         if not self.is_alive:
             raise RuntimeError("broker is not running")
 
-        task = self.imap([request], start=False, **kwargs)
-        task.run()
-        for result in task.iter_results(timeout=0):
-            return result
+        return apply(request, self.frontend_address, **kwargs)
