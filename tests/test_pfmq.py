@@ -45,6 +45,11 @@ def workers(broker):
         worker.cancel()
 
 
+@pytest.fixture
+def requests():
+    return [{'fetches': 'z', 'context': {'x': 1, 'y': 3 + i}} for i in range(200)]
+
+
 def test_workers_running(workers):
     # Sleep a second to make sure the workers have "time to fail"
     time.sleep(1)
@@ -76,14 +81,24 @@ def test_cancel_task():
     task._thread.join()
 
 
-def test_imap(broker, workers):
-    requests = [{'fetches': 'z', 'context': {'x': 1, 'y': 3 + i}} for i in range(200)]
+def test_imap(broker, workers, requests):
     task = broker.imap(requests)
     for i, result in enumerate(task):
         assert result == 1 / (3 + i)
     # Make sure the task finishes
     task._thread.join()
 
+
+def test_task_context(broker, workers, requests):
+    with broker.imap(requests, max_results=1) as task:
+        pass
+    # Make sure the task finishes
+    task._thread.join()
+
+def test_task_context_not_started(broker, workers, requests):
+    with pytest.raises(RuntimeError):
+        with broker.imap(requests, start=False):
+            pass
 
 def test_worker_timeout(backend_address):
     worker = pfmq.Worker(lambda: None, backend_address, timeout=.1, max_retries=3)

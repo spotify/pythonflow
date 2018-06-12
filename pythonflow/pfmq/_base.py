@@ -50,6 +50,15 @@ class Base:
     }
     STATUS.update({value: key for key, value in STATUS.items()})
 
+    def __enter__(self):
+        if not self.is_alive:
+            raise RuntimeError("set `start=True` in the constructor to use a context manager")
+        return self
+
+    def __exit__(self, *_):
+        if self.is_alive:
+            self.cancel()
+
     @property
     def is_alive(self):
         """
