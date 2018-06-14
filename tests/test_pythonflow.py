@@ -482,3 +482,48 @@ def test_duplicate_value():
 
     with pytest.raises(ValueError):
         graph([], {a: 1, 'a': 1})
+
+
+def test_conditional_callback():
+    with pf.Graph() as graph:
+        a = pf.constant(1)
+        b = pf.constant(2)
+        c = pf.placeholder()
+        d = pf.conditional(c, a, b + 1)
+
+    # Check that we have "traced" the correct number of operation evaluations
+    tracer = pf.Profiler()
+    assert graph(d, {c: True}, callback=tracer) == 1
+    assert len(tracer.times) == 2
+    tracer = pf.Profiler()
+    assert graph(d, {c: False}, callback=tracer) == 3
+    assert len(tracer.times) == 3
+
+
+def test_try_callback():
+    with pf.Graph() as graph:
+        a = pf.placeholder('a')
+        b = pf.assert_((a > 0).set_name('condition'), value=a, name='b')
+        c = pf.try_(b, [
+            (AssertionError, (pf.constant(41, name='41') + 1).set_name('alternative'))
+        ])
+
+    tracer = pf.Profiler()
+    graph(c, {a: 3}, callback=tracer) == 3
+    assert len(tracer.times) == 3
+
+    graph(c, {a: -2}, callback=tracer) == 42
+    assert len(tracer.times) == 5
+
+
+def test_stack_trace():
+    with pf.Graph() as graph:
+        a = pf.placeholder()
+        b = pf.placeholder()
+        c = a / b
+
+    try:
+        graph(c, {a: 1, b: 0})
+        raise RuntimeError("did not raise ZeroDivisionError")
+    except ZeroDivisionError as ex:
+        assert isinstance(ex.__cause__, pf.EvaluationError)

@@ -50,6 +50,13 @@ class Base:
     }
     STATUS.update({value: key for key, value in STATUS.items()})
 
+    def __enter__(self):
+        self.run_async()
+        return self
+
+    def __exit__(self, *_):
+        self.cancel()
+
     @property
     def is_alive(self):
         """
@@ -65,13 +72,19 @@ class Base:
         ----------
         timeout : float
             Timeout for joining the background thread.
+
+        Returns
+        -------
+        cancelled : bool
+            Whether the background thread was cancelled. `False` if the background thread was not
+            running.
         """
         if self.is_alive:
             self._cancel_parent.send_multipart([b''])
             self._thread.join(timeout)
             self._cancel_parent.close()
-        else:
-            raise RuntimeError('background thread is not running')
+            return True
+        return False
 
     def run_async(self):
         """

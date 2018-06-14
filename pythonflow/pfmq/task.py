@@ -234,3 +234,25 @@ class Task(Base):  # pylint: disable=too-many-instance-attributes
 
     def __iter__(self):
         return self.iter_results()
+
+
+def apply(request, frontend_address, **kwargs):
+    """
+    Process a request remotely.
+
+    Parameters
+    ----------
+    request : object
+        Request to process.
+    frontend_address : str
+        Address of the broker frontend.
+
+    Returns
+    -------
+    ressult : object
+        Result of remotely-processed request.
+    """
+    task = Task([request], frontend_address, start=False, **kwargs)
+    task.run()
+    for result in task.iter_results(timeout=0):
+        return result

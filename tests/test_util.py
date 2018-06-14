@@ -38,4 +38,4 @@ def test_profiling():
     # Check that the slowest operation comes first
     callback_str = str(callback)
     assert callback_str.startswith(str(sleep))
-    assert len(callback_str.split('\n')) == 4
+    assert len(callback_str.split('\n')) == 5

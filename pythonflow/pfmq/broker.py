@@ -19,7 +19,7 @@ import uuid
 import zmq
 
 from ._base import Base
-from .task import Task
+from .task import Task, apply
 
 
 LOGGER = logging.getLogger(__name__)
@@ -92,7 +92,7 @@ class Broker(Base):
                         _, identifier, status, response = message
                         LOGGER.debug(
                             'received RESPONSE with identifier %s from %s for %s with status %s',
-                            int.from_bytes(identifier, 'little'), worker, client,
+                            int.from_bytes(identifier, 'little'), worker.hex(), client.hex(),
                             self.STATUS[status]
                         )
                         # Try to forward the message to a waiting client
@@ -103,21 +103,21 @@ class Broker(Base):
                         except KeyError:
                             cache.setdefault(client, []).append((identifier, status, response))
                     else:
-                        LOGGER.debug('received SIGN-UP message from %s; now %d workers', worker,
-                                     len(workers))
-                    del worker
+                        LOGGER.debug('received SIGN-UP message from %s; now %d workers',
+                                     worker.hex(), len(workers))
 
                 # Receive requests from the frontend, forward to the workers, and return responses
                 if sockets.get(frontend) == zmq.POLLIN:
                     client, _, identifier, *request = frontend.recv_multipart()
                     LOGGER.debug('received REQUEST with byte identifier %s from %s',
-                                 identifier, client)
+                                 identifier, client.hex())
 
                     if identifier:
                         worker = workers.pop()
                         backend.send_multipart([worker, _, client, _, identifier, *request])
                         LOGGER.debug('forwarded REQUEST with identifier %s from %s to %s',
-                                     int.from_bytes(identifier, 'little'), client, worker)
+                                     int.from_bytes(identifier, 'little'), client.hex(),
+                                     worker.hex())
 
                     try:
                         self._forward_response(frontend, client, *cache[client].pop(0))
@@ -125,7 +125,7 @@ class Broker(Base):
                         # Send a dispatch notification if the task sent a new message
                         if identifier:
                             frontend.send_multipart([client, _, _])
-                            LOGGER.debug('notified %s of REQUEST dispatch', client)
+                            LOGGER.debug('notified %s of REQUEST dispatch', client.hex())
                         # Add the task to the list of tasks waiting for responses otherwise
                         else:
                             clients.add(client)
@@ -140,7 +140,17 @@ class Broker(Base):
 
     def imap(self, requests, **kwargs):
         """
-        Convenience method for applying a target to requests remotely.
+        Process a sequence of requests remotely.
+
+        Parameters
+        ----------
+        requsests : iterable
+            Sequence of requests to process.
+
+        Returns
+        -------
+        task : Task
+            Remote task that can be iterated over.
         """
         if not self.is_alive:
             raise RuntimeError("broker is not running")
@@ -148,12 +158,19 @@ class Broker(Base):
 
     def apply(self, request, **kwargs):
         """
-        Convenience method for applying a target to a request remotely.
+        Process a request remotely.
+
+        Parameters
+        ----------
+        request : object
+            Request to process.
+
+        Returns
+        -------
+        ressult : object
+            Result of remotely-processed request.
         """
         if not self.is_alive:
             raise RuntimeError("broker is not running")
 
-        task = self.imap([request], start=False, **kwargs)
-        task.run()
-        for result in task.iter_results(timeout=0):
-            return result
+        return apply(request, self.frontend_address, **kwargs)

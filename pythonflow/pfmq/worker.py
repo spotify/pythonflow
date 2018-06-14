@@ -107,7 +107,7 @@ class Worker(Base):
                     if sockets.get(socket) == zmq.POLLIN:
                         client, _, identifier, *request = socket.recv_multipart()
                         LOGGER.debug('received REQUEST with identifier %d from %s',
-                                     int.from_bytes(identifier, 'little'), client)
+                                     int.from_bytes(identifier, 'little'), client.hex())
 
                         try:
                             response = self.target(self.loads(*request))
@@ -117,14 +117,14 @@ class Worker(Base):
                             response = value, "".join(traceback.format_exception(etype, value, tb))
                             status = self.STATUS['error']
                             LOGGER.exception("failed to process REQUEST with identifier %d from %s",
-                                             int.from_bytes(identifier, 'little'), client)
+                                             int.from_bytes(identifier, 'little'), client.hex())
 
                         try:
                             response = self.dumps(response)
                         except Exception:  # pylint: disable=broad-except
                             LOGGER.exception(
                                 "failed to serialise RESPONSE with identifier %d for %s",
-                                int.from_bytes(identifier, 'little'), client
+                                int.from_bytes(identifier, 'little'), client.hex()
                             )
                             response = b""
                             status = self.STATUS['serialization_error']
@@ -132,7 +132,7 @@ class Worker(Base):
                         socket.send_multipart([client, b'', identifier, status, response])
                         LOGGER.debug(
                             'sent RESPONSE with identifier %s to %s with status %s',
-                            int.from_bytes(identifier, 'little'), client, self.STATUS[status]
+                            int.from_bytes(identifier, 'little'), client.hex(), self.STATUS[status]
                         )
 
         LOGGER.error("maximum number of retries (%d) for %s exceeded", self.max_retries,

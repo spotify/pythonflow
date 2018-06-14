@@ -50,14 +50,15 @@ class conditional(Operation):  # pylint: disable=C0103,W0223
 
     def evaluate(self, context, callback=None):
         # Evaluate all dependencies first
-        self.evaluate_dependencies(context)
+        callback = callback or _noop_callback
+        self.evaluate_dependencies(context, callback)
 
         predicate, x, y = self.args  # pylint: disable=E0632,C0103
         # Evaluate the predicate and pick the right operation
-        predicate = self.evaluate_operation(predicate, context)
-        callback = callback or _noop_callback
+        predicate = self.evaluate_operation(predicate, context, callback=callback)
         with callback(self, context):
-            context[self] = value = self.evaluate_operation(x if predicate else y, context)
+            value = self.evaluate_operation(x if predicate else y, context, callback=callback)
+            context[self] = value
         return value
 
 
@@ -83,20 +84,22 @@ class try_(Operation):  # pylint: disable=C0103,W0223
 
     def evaluate(self, context, callback=None):
         # Evaluate all dependencies first
-        self.evaluate_dependencies(context)
+        callback = callback or _noop_callback
+        self.evaluate_dependencies(context, callback=callback)
 
         operation, except_, finally_ = self.args # pylint: disable=E0632,C0103
-        callback = callback or _noop_callback
         with callback(self, context):
             try:
-                context[self] = value = self.evaluate_operation(operation, context)
+                value = self.evaluate_operation(operation, context, callback=callback)
+                context[self] = value
                 return value
             except:
                 # Check the exceptions
                 _, ex, _ = sys.exc_info()
                 for type_, alternative in except_:
                     if isinstance(ex, type_):
-                        context[self] = value = self.evaluate_operation(alternative, context)
+                        value = self.evaluate_operation(alternative, context, callback=callback)
+                        context[self] = value
                         return value
                 raise
             finally:

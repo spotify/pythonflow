@@ -14,6 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .task import Task, SerializationError
+from .task import Task, SerializationError, apply
 from .broker import Broker
 from .worker import Worker
