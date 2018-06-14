@@ -19,7 +19,6 @@ import collections
 import contextlib
 import functools
 import importlib
-import logging
 import operator
 import traceback
 import uuid
@@ -191,6 +190,12 @@ class Graph:
         return graph
 
 
+class EvaluationError(RuntimeError):
+    """
+    Failed to evaluate an operation.
+    """
+
+
 class Operation:  # pylint:disable=too-few-public-methods,too-many-instance-attributes
     """
     Base class for operations.
@@ -340,7 +345,7 @@ class Operation:  # pylint:disable=too-few-public-methods,too-many-instance-attr
                 return slice(*[partial(getattr(operation, attr))
                                for attr in ['start', 'stop', 'step']])
             return operation
-        except Exception:
+        except Exception as ex:
             stack = []
             interactive = False
             for frame in reversed(operation._stack):  # pylint: disable=protected-access
@@ -354,8 +359,8 @@ class Operation:  # pylint:disable=too-few-public-methods,too-many-instance-attr
                 stack.append(frame)
 
             stack = "".join(traceback.format_list(reversed(stack)))
-            logging.error("Failed to evaluate operation `%s` defined at:\n\n%s", operation, stack)
-            raise
+            message = "Failed to evaluate operation `%s` defined at:\n\n%s" % (operation, stack)
+            raise ex from EvaluationError(message)
 
     def __bool__(self):
         return True

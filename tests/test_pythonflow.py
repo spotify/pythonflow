@@ -514,3 +514,16 @@ def test_try_callback():
 
     graph(c, {a: -2}, callback=tracer) == 42
     assert len(tracer.times) == 5
+
+
+def test_stack_trace():
+    with pf.Graph() as graph:
+        a = pf.placeholder()
+        b = pf.placeholder()
+        c = a / b
+
+    try:
+        graph(c, {a: 1, b: 0})
+        raise RuntimeError("did not raise ZeroDivisionError")
+    except ZeroDivisionError as ex:
+        assert isinstance(ex.__cause__, pf.EvaluationError)
