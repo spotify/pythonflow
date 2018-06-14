@@ -19,7 +19,9 @@ import collections
 import contextlib
 import functools
 import importlib
+import logging
 import operator
+import traceback
 import uuid
 
 from .util import _noop_callback
@@ -159,7 +161,7 @@ class Graph:
 
         fetches = [self.normalize_operation(operation) for operation in fetches]
         context = self.normalize_context(context, **kwargs)
-        values = [fetch.evaluate(context, callback=callback) for fetch in fetches]
+        values = [fetch.evaluate_operation(fetch, context, callback=callback) for fetch in fetches]
         return values[0] if single else tuple(values)
 
     __call__ = apply
@@ -189,7 +191,7 @@ class Graph:
         return graph
 
 
-class Operation:  # pylint:disable=too-few-public-methods
+class Operation:  # pylint:disable=too-few-public-methods,too-many-instance-attributes
     """
     Base class for operations.
 
@@ -221,6 +223,8 @@ class Operation:  # pylint:disable=too-few-public-methods
         # Get a list of all dependencies relevant to this operation
         self.dependencies = [] if dependencies is None else dependencies
         self.dependencies.extend(self.graph.dependencies)
+        # Get the stack context so we can report where the operation was defined
+        self._stack = traceback.extract_stack()
 
     def __getstate__(self):
         return self.__dict__
@@ -322,18 +326,36 @@ class Operation:  # pylint:disable=too-few-public-methods
         """
         Evaluate an operation or constant given a context.
         """
-        if isinstance(operation, Operation):
-            return operation.evaluate(context, **kwargs)
-        partial = functools.partial(cls.evaluate_operation, context=context, **kwargs)
-        if isinstance(operation, tuple):
-            return tuple(partial(element) for element in operation)
-        if isinstance(operation, list):
-            return [partial(element) for element in operation]
-        if isinstance(operation, dict):
-            return {partial(key): partial(value) for key, value in operation.items()}
-        if isinstance(operation, slice):
-            return slice(*[partial(getattr(operation, attr)) for attr in ['start', 'stop', 'step']])
-        return operation
+        try:
+            if isinstance(operation, Operation):
+                return operation.evaluate(context, **kwargs)
+            partial = functools.partial(cls.evaluate_operation, context=context, **kwargs)
+            if isinstance(operation, tuple):
+                return tuple(partial(element) for element in operation)
+            if isinstance(operation, list):
+                return [partial(element) for element in operation]
+            if isinstance(operation, dict):
+                return {partial(key): partial(value) for key, value in operation.items()}
+            if isinstance(operation, slice):
+                return slice(*[partial(getattr(operation, attr))
+                               for attr in ['start', 'stop', 'step']])
+            return operation
+        except Exception:
+            stack = []
+            interactive = False
+            for frame in reversed(operation._stack):  # pylint: disable=protected-access
+                # Do not capture any internal stack traces
+                if 'pythonflow' in frame.filename:
+                    continue
+                # Stop tracing at the last interactive cell
+                if interactive and not frame.filename.startswith('<'):
+                    break  # pragma: no cover
+                interactive = frame.filename.startswith('<')
+                stack.append(frame)
+
+            stack = "".join(traceback.format_list(reversed(stack)))
+            logging.error("Failed to evaluate operation `%s` defined at:\n\n%s", operation, stack)
+            raise
 
     def __bool__(self):
         return True
