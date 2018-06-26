@@ -527,3 +527,11 @@ def test_stack_trace():
         raise RuntimeError("did not raise ZeroDivisionError")
     except ZeroDivisionError as ex:
         assert isinstance(ex.__cause__, pf.EvaluationError)
+
+
+def test_placeholder_with_kwargs():
+    with pf.Graph() as graph:
+        a = pf.placeholder(length=2)
+        b, c = a
+
+    assert graph([b, c], {a: [1, 2]}) == (1, 2)
