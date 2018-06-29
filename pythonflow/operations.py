@@ -27,8 +27,8 @@ class placeholder(Operation):  # pylint: disable=C0103,R0903
     """
     Placeholder that needs to be given in the context to be evaluated.
     """
-    def __init__(self, name=None):
-        super(placeholder, self).__init__(name=name)
+    def __init__(self, name=None, **kwargs):
+        super(placeholder, self).__init__(name=name, **kwargs)
 
     def _evaluate(self):  # pylint: disable=W0221
         raise ValueError("missing value for placeholder '%s'" % self.name)
