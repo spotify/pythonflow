@@ -22,6 +22,7 @@ At Spotify, we use Pythonflow in data preprocessing pipelines for machine learni
    guide
    distributed
    pythonflow
+   pythonflow.pfmq
 
 
 Indices and tables

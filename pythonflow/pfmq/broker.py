@@ -37,11 +37,14 @@ class Broker(Base):
         Address to which tasks can connect (defaults to a random in-process communication channel).
     start : bool
         Whether to start the event loop as a background thread.
+    topic : bytes or None
+        Topic for the communication. Only sockets with the same topic are allowed to communicate
+        with one another to avoid unexpected communication with unintended remote graphs.
     """
-    def __init__(self, backend_address, frontend_address=None, start=False):
+    def __init__(self, backend_address, frontend_address=None, start=False, topic=None):
         self.backend_address = backend_address
         self.frontend_address = frontend_address or f'inproc://{uuid.uuid4().hex}'
-        super(Broker, self).__init__(start)
+        super(Broker, self).__init__(start, topic)
 
     def run(self):  # pylint: disable=too-many-statements,too-many-locals,too-many-branches
         context = zmq.Context.instance()
@@ -85,56 +88,68 @@ class Broker(Base):
 
                 # Receive responses or sign-up messages from the backend
                 if sockets.get(backend) == zmq.POLLIN:
-                    worker, _, client, *message = backend.recv_multipart()
-                    workers.add(worker)
+                    worker, _, status, topic, *payload = backend.recv_multipart()
 
-                    if client:
-                        _, identifier, status, response = message
-                        LOGGER.debug(
-                            'received RESPONSE with identifier %s from %s for %s with status %s',
-                            int.from_bytes(identifier, 'little'), worker.hex(), client.hex(),
-                            self.STATUS[status]
-                        )
-                        # Try to forward the message to a waiting client
-                        try:
-                            clients.remove(client)
-                            self._forward_response(frontend, client, identifier, status, response)
-                        # Add it to the cache otherwise
-                        except KeyError:
-                            cache.setdefault(client, []).append((identifier, status, response))
+                    if topic != self.topic:
+                        LOGGER.warning('received RESPONSE/SIGN-UP with topic %s from %s (expected '
+                                       '%s)', topic, worker.hex(), self.topic)
+                        backend.send_multipart([worker, _, self.STATUS['topic_error'], self.topic])
                     else:
-                        LOGGER.debug('received SIGN-UP message from %s; now %d workers',
-                                     worker.hex(), len(workers))
+                        workers.add(worker)
+
+                        if status in (self.STATUS['response'], self.STATUS['response_error'],
+                                      self.STATUS['serialization_error']):
+                            client, identifier, response = payload
+                            LOGGER.debug('received RESPONSE with identifier %s from %s for %s with '
+                                         'status %s', int.from_bytes(identifier, 'little'),
+                                         worker.hex(), client.hex(), self.STATUS[status])
+                            # Try to forward the message to a waiting client
+                            try:
+                                clients.remove(client)
+                                self._forward_response(frontend, client, identifier, status,
+                                                       response)
+                            # Add it to the cache otherwise
+                            except KeyError:
+                                cache.setdefault(client, []).append((identifier, status, response))
+                        elif status == self.STATUS['sign_up']:
+                            LOGGER.debug('received SIGN-UP message from %s; now %d workers',
+                                         worker.hex(), len(workers))
+                        else:  # pragma: no cover
+                            raise KeyError(status)
 
                 # Receive requests from the frontend, forward to the workers, and return responses
                 if sockets.get(frontend) == zmq.POLLIN:
-                    client, _, identifier, *request = frontend.recv_multipart()
-                    LOGGER.debug('received REQUEST with byte identifier %s from %s',
-                                 identifier, client.hex())
+                    client, _, status, topic, *payload = frontend.recv_multipart()
 
-                    if identifier:
-                        worker = workers.pop()
-                        backend.send_multipart([worker, _, client, _, identifier, *request])
-                        LOGGER.debug('forwarded REQUEST with identifier %s from %s to %s',
-                                     int.from_bytes(identifier, 'little'), client.hex(),
-                                     worker.hex())
+                    if topic != self.topic:
+                        LOGGER.warning('received REQUEST with topic %s from %s (expected %s)',
+                                       topic, client.hex(), self.topic)
+                        frontend.send_multipart([client, _, self.STATUS['topic_error'], self.topic])
+                    else:
+                        if status == self.STATUS['request']:
+                            worker = workers.pop()
+                            backend.send_multipart([worker, _, self.STATUS['request'], client,
+                                                    *payload])
+                            LOGGER.debug('forwarded REQUEST with identifier %s from %s to %s',
+                                         int.from_bytes(payload[0], 'little'), client.hex(),
+                                         worker.hex())
 
-                    try:
-                        self._forward_response(frontend, client, *cache[client].pop(0))
-                    except (KeyError, IndexError):
-                        # Send a dispatch notification if the task sent a new message
-                        if identifier:
-                            frontend.send_multipart([client, _, _])
-                            LOGGER.debug('notified %s of REQUEST dispatch', client.hex())
-                        # Add the task to the list of tasks waiting for responses otherwise
-                        else:
-                            clients.add(client)
+                        try:
+                            self._forward_response(frontend, client, *cache[client].pop(0))
+                        except (KeyError, IndexError):
+                            # Send a dispatch notification if the task sent a new message
+                            if status == self.STATUS['request']:
+                                frontend.send_multipart([client, _, self.STATUS['dispatch']])
+                                LOGGER.debug('notified %s of REQUEST dispatch', client.hex())
+                            # Add the task to the list of tasks waiting for responses otherwise
+                            else:
+                                clients.add(client)
 
         LOGGER.debug('exiting communication loop')
 
     @classmethod
     def _forward_response(cls, frontend, client, identifier, status, response):  # pylint: disable=too-many-arguments
-        frontend.send_multipart([client, b'', identifier, status, response])
+        frontend.send_multipart([client, b'', status, identifier, response])
         LOGGER.debug('forwarded RESPONSE with identifier %s to %s with status %s',
                      int.from_bytes(identifier, 'little'), client, cls.STATUS[status])
 
@@ -154,6 +169,8 @@ class Broker(Base):
         """
         if not self.is_alive:
             raise RuntimeError("broker is not running")
+        kwargs.setdefault('topic', self.topic)
+
         return Task(requests, self.frontend_address, **kwargs)
 
     def apply(self, request, **kwargs):
@@ -172,5 +189,6 @@ class Broker(Base):
         """
         if not self.is_alive:
             raise RuntimeError("broker is not running")
+        kwargs.setdefault('topic', self.topic)
 
         return apply(request, self.frontend_address, **kwargs)

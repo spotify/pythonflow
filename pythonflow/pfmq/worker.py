@@ -22,7 +22,7 @@ import uuid
 
 import zmq
 
-from ._base import Base
+from ._base import Base, TopicError
 
 
 LOGGER = logging.getLogger(__name__)
@@ -31,11 +31,6 @@ LOGGER = logging.getLogger(__name__)
 class Worker(Base):
     """
     A worker for executing remote fetches.
-
-    Workers send an empty message to the load balancer bound to `address` to sign up and notify the
-    load balancer of their availability. They wait for incoming messages of the format
-    `*header, request`, apply `target` to the deserialised `request` to obtain a `result`, and
-    respond with a multi-part message of the format `*header, result`.
 
     Parameters
     ----------
@@ -54,9 +49,12 @@ class Worker(Base):
     max_retries : int
         Number of retry attempts or `None` for indefinite retries. Defaults to `None` for workers
         because they will time out if the load balancer does not provide any work.
+    topic : bytes or None
+        Topic for the communication. Only sockets with the same topic are allowed to communicate
+        with one another to avoid unexpected communication with unintended remote graphs.
     """
     def __init__(self, target, address, dumps=None, loads=None, start=False, timeout=10,  # pylint: disable=too-many-arguments
-                 max_retries=None):
+                 max_retries=None, topic=None):
         self.target = target
         self.address = address
         self.dumps = dumps or pickle.dumps
@@ -64,9 +62,9 @@ class Worker(Base):
         self.max_retries = max_retries
         self.timeout = timeout
 
-        super(Worker, self).__init__(start)
+        super(Worker, self).__init__(start, topic)
 
-    def run(self):  # pylint: disable=too-many-locals
+    def run(self):  # pylint: disable=too-many-locals,too-many-statements
         context = zmq.Context.instance()
         # Use a specific identity for the worker such that reconnects don't change it.
         identity = uuid.uuid4().bytes
@@ -83,7 +81,7 @@ class Worker(Base):
                 poller.register(cancel, zmq.POLLIN)
                 poller.register(socket, zmq.POLLIN)
 
-                socket.send_multipart([b''])
+                socket.send_multipart([self.STATUS['sign_up'], self.topic])
                 LOGGER.debug('sent sign-up message')
 
                 while True:
@@ -105,35 +103,51 @@ class Worker(Base):
 
                     # Process messages
                     if sockets.get(socket) == zmq.POLLIN:
-                        client, _, identifier, *request = socket.recv_multipart()
-                        LOGGER.debug('received REQUEST with identifier %d from %s',
-                                     int.from_bytes(identifier, 'little'), client.hex())
+                        status, *payload = socket.recv_multipart()
 
-                        try:
-                            response = self.target(self.loads(*request))
-                            status = self.STATUS['ok']
-                        except Exception:  # pylint: disable=broad-except
-                            etype, value, tb = sys.exc_info()  # pylint: disable=invalid-name
-                            response = value, "".join(traceback.format_exception(etype, value, tb))
-                            status = self.STATUS['error']
-                            LOGGER.exception("failed to process REQUEST with identifier %d from %s",
-                                             int.from_bytes(identifier, 'little'), client.hex())
+                        if status == self.STATUS['request']:
+                            client, identifier, request = payload
+                            LOGGER.debug('received REQUEST with identifier %d from %s',
+                                         int.from_bytes(identifier, 'little'), client.hex())
 
-                        try:
-                            response = self.dumps(response)
-                        except Exception:  # pylint: disable=broad-except
-                            LOGGER.exception(
-                                "failed to serialise RESPONSE with identifier %d for %s",
-                                int.from_bytes(identifier, 'little'), client.hex()
+                            try:
+                                response = self.target(self.loads(request))
+                                status = self.STATUS['response']
+                            except Exception:  # pylint: disable=broad-except
+                                etype, value, tb = sys.exc_info()  # pylint: disable=invalid-name
+                                response = (
+                                    value,
+                                    "".join(traceback.format_exception(etype, value, tb))
+                                )
+                                status = self.STATUS['response_error']
+                                LOGGER.exception(
+                                    "failed to process REQUEST with identifier %d from %s",
+                                    int.from_bytes(identifier, 'little'), client.hex()
+                                )
+
+                            try:
+                                response = self.dumps(response)
+                            except Exception:  # pylint: disable=broad-except
+                                LOGGER.exception(
+                                    "failed to serialise RESPONSE with identifier %d for %s",
+                                    int.from_bytes(identifier, 'little'), client.hex()
+                                )
+                                response = b''
+                                status = self.STATUS['serialization_error']
+
+                            socket.send_multipart([
+                                status, self.topic, client, identifier, response
+                            ])
+                            LOGGER.debug(
+                                'sent RESPONSE with identifier %s to %s with status %s',
+                                int.from_bytes(identifier, 'little'), client.hex(),
+                                self.STATUS[status]
                             )
-                            response = b""
-                            status = self.STATUS['serialization_error']
-
-                        socket.send_multipart([client, b'', identifier, status, response])
-                        LOGGER.debug(
-                            'sent RESPONSE with identifier %s to %s with status %s',
-                            int.from_bytes(identifier, 'little'), client.hex(), self.STATUS[status]
-                        )
+                        elif status == self.STATUS['topic_error']:
+                            topic, = payload
+                            raise TopicError(f"broker expected topic {topic} but got {self.topic}")
+                        else:  # pragma: no cover
+                            raise KeyError(status)
 
         LOGGER.error("maximum number of retries (%d) for %s exceeded", self.max_retries,
                      self.address)
