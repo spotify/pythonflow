@@ -67,6 +67,10 @@ def test_apply_error(broker, workers):
     with pytest.raises(ZeroDivisionError):
         broker.apply(request)
 
+    # Ensure the workers didn't die
+    for worker in workers:
+        assert worker.is_alive
+
 
 def test_apply_batch(broker, workers):
     request = {'fetches': 'z', 'contexts': [{'x': 1, 'y': 3 + i} for i in range(5)]}
