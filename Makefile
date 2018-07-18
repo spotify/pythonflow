@@ -15,7 +15,7 @@ docs :
 	sphinx-build -nWT docs build
 
 install :
-	pip install -r requirements.txt
+	pip install --no-cache -r requirements.txt
 	pip install -e .
 
 clean :
