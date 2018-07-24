@@ -72,10 +72,9 @@ class Graph:
             if operation.graph is not self:
                 raise RuntimeError(f"operation '{operation}' does not belong to this graph")
             return operation
-        elif isinstance(operation, str):
+        if isinstance(operation, str):
             return self.operations[operation]
-        else:
-            raise ValueError(f"'{operation}' is not an `Operation` instance or operation name")
+        raise ValueError(f"'{operation}' is not an `Operation` instance or operation name")
 
     def normalize_context(self, context, **kwargs):
         """
