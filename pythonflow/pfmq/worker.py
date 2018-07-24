@@ -151,7 +151,8 @@ class Worker(Base):
         def _target(request):
             if 'context' in request:
                 return graph(request['fetches'], request['context'])
-            elif 'contexts' in request:
+            if 'contexts' in request:
                 return [graph(request['fetches'], context) for context in request['contexts']]
             raise KeyError("`context` or `contexts` must be in the request")
+
         return cls(_target, *args, **kwargs)
