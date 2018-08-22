@@ -344,7 +344,7 @@ class Operation:  # pylint:disable=too-few-public-methods,too-many-instance-attr
                 return slice(*[partial(getattr(operation, attr))
                                for attr in ['start', 'stop', 'step']])
             return operation
-        except Exception as ex:
+        except Exception as ex:  # pragma: no cover
             stack = []
             interactive = False
             for frame in reversed(operation._stack):  # pylint: disable=protected-access
