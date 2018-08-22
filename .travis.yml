@@ -1,11 +1,12 @@
 language: python
 python:
-- '3.6'
+  - '3.6'
 cache: pip
 install:
-- pipenv install --dev --ignore-pipfile
+  - pip install pipenv
+  - pipenv install --dev --ignore-pipfile
 script:
-- pipenv run make
+  - pipenv run make
 deploy:
   provider: pypi
   skip_existing: true
