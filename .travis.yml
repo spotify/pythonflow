@@ -3,9 +3,9 @@ python:
 - '3.6'
 cache: pip
 install:
-- make install
+- pipenv install --dev --ignore-pipfile
 script:
-- make
+- pipenv run make
 deploy:
   provider: pypi
   skip_existing: true

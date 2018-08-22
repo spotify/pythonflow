@@ -14,9 +14,5 @@ docs :
 	sphinx-build -b doctest docs build
 	sphinx-build -nWT docs build
 
-install :
-	pip install -r requirements.txt
-	pip install -e .
-
 clean :
 	rm -rf build/
