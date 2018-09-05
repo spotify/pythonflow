@@ -23,7 +23,7 @@ import uuid
 
 import zmq
 
-from ._base import Base
+from ._base import Base, TopicError
 
 
 LOGGER = logging.getLogger(__name__)
@@ -38,12 +38,6 @@ class SerializationError(RuntimeError):
 class Task(Base):  # pylint: disable=too-many-instance-attributes
     """
     A task that is executed remotely.
-
-    Tasks send one or more batches of `fetches` and `contexts` to the broker bound to `address`
-    using the format `identifier, request`. Upon each request, they wait for a message acknowledging
-    the receipt of the request comprising a single, empty frame or a result in the format
-    `identifier, result`. If all batches have been dispatched but not all results have been
-    received, tasks send a single empty frame to poll for additional results.
 
     Parameters
     ----------
@@ -64,9 +58,12 @@ class Task(Base):  # pylint: disable=too-many-instance-attributes
     cache_size : int
         Maximum number of results to cache. If `cache_size <= 0`, the cache is infinite which can
         lead to the exhaustion of memory resources.
+    topic : bytes or None
+        Topic for the communication. Only sockets with the same topic are allowed to communicate
+        with one another to avoid unexpected communication with unintended remote graphs.
     """
     def __init__(self, requests, address, dumps=None, loads=None, start=True, timeout=10,  # pylint: disable=too-many-arguments
-                 max_retries=3, max_results=1024):
+                 max_retries=3, max_results=1024, topic=None):
         self.requests = requests
         self.address = address
         self.dumps = dumps or pickle.dumps
@@ -76,7 +73,7 @@ class Task(Base):  # pylint: disable=too-many-instance-attributes
         self.timeout = timeout
         self.max_retries = max_retries
 
-        super(Task, self).__init__(start)
+        super(Task, self).__init__(start, topic)
 
     def run(self):  # pylint: disable=too-many-statements,too-many-branches,too-many-locals
         context = zmq.Context.instance()
@@ -87,6 +84,8 @@ class Task(Base):  # pylint: disable=too-many-instance-attributes
         current_identifier = last_identifier = None
         next_identifier = 0
         cache = {}
+        message_statuses = [self.STATUS[status] for status in
+                            ['response', 'serialization_error', 'response_error']]
 
         while True:
             with context.socket(zmq.PAIR) as cancel, context.socket(zmq.REQ) as socket:  # pylint: disable=E1101
@@ -100,7 +99,7 @@ class Task(Base):  # pylint: disable=too-many-instance-attributes
 
                 LOGGER.debug('connected %s to %s', identity, self.address)
 
-                while True:
+                while True:  # pylint: disable=too-many-nested-blocks
                     LOGGER.debug("%d pending messages", len(pending))
                     # See whether we can find a request that has timed out
                     identifier = message = None
@@ -119,6 +118,8 @@ class Task(Base):  # pylint: disable=too-many-instance-attributes
                             identifier, request = next(requests)
                             num_bytes = max((identifier.bit_length() + 7) // 8, 1)
                             message = [
+                                self.STATUS['request'],
+                                self.topic,
                                 identifier.to_bytes(num_bytes, 'little'),
                                 self.dumps(request)
                             ]
@@ -128,7 +129,7 @@ class Task(Base):  # pylint: disable=too-many-instance-attributes
                         except StopIteration:
                             last_identifier = last_identifier or current_identifier
                             identifier = None
-                            message = [b'']
+                            message = [self.STATUS['poll'], self.topic]
                             LOGGER.debug('no more requests; waiting for responses')
 
                     socket.send_multipart(message)
@@ -156,7 +157,7 @@ class Task(Base):  # pylint: disable=too-many-instance-attributes
                             message = "maximum number of retries (%d) for %s exceeded" % \
                                 (self.max_retries, self.address)
                             LOGGER.error(message)
-                            self.results.put(('timeout', TimeoutError(message)))
+                            self.results.put((self.STATUS['timeout'], TimeoutError(message)))
                             return
                         break
 
@@ -169,40 +170,54 @@ class Task(Base):  # pylint: disable=too-many-instance-attributes
                         return
 
                     if sockets.get(socket) == zmq.POLLIN:
-                        identifier, *response = socket.recv_multipart()
-                        if not identifier:
+                        status, *payload = socket.recv_multipart()
+
+                        if status in message_statuses:
+                            identifier, response = payload
+                            # Decode the identifier, remove the corresponding request from `pending`
+                            identifier = int.from_bytes(identifier, 'little')
+                            LOGGER.debug('received RESPONSE for identifier %d (next: %d, end: %s)',
+                                         identifier, next_identifier, last_identifier)
+                            pending.pop(identifier, None)
+
+                            # Drop the message if it is outdated
+                            if identifier < next_identifier:  # pragma: no cover
+                                LOGGER.debug('dropped RESPONSE with identifier %d (next: %d)',
+                                             identifier, next_identifier)
+                                continue
+
+                            # Add the message to the cache
+                            cache[identifier] = status, response
+                            while True:
+                                try:
+                                    status, response = cache.pop(next_identifier)
+                                    if status == self.STATUS['serialization_error']:
+                                        response = SerializationError(
+                                            "failed to serialize result for request with "
+                                            "identifier %s" % identifier
+                                        )
+                                    else:
+                                        response = self.loads(response)
+
+                                    self.results.put((status, response))
+
+                                    if next_identifier == last_identifier:
+                                        self.results.put((self.STATUS['end'], None))
+                                        return
+                                    next_identifier += 1
+                                except KeyError:
+                                    break
+                        elif status == self.STATUS['dispatch']:
                             LOGGER.debug('received dispatch notification')
-                            continue
+                        elif status == self.STATUS['topic_error']:
+                            topic, = payload
+                            ex = TopicError(
+                                f"broker expected topic {topic} but got {self.topic}")
+                            self.results.put((status, ex))
+                            raise ex
+                        else:  # pragma: no cover
+                            raise KeyError(status)
 
-                        # Decode the identifier and remove the corresponding request from `pending`
-                        identifier = int.from_bytes(identifier, 'little')
-                        LOGGER.debug('received RESPONSE for identifier %d (next: %d, end: %s)',
-                                     identifier, next_identifier, last_identifier)
-                        pending.pop(identifier, None)
-
-                        # Drop the message if it is outdated
-                        if identifier < next_identifier:  # pragma: no cover
-                            LOGGER.debug('dropped RESPONSE with identifier %d (next: %d)',
-                                         identifier, next_identifier)
-                            continue
-
-                        # Add the message to the cache
-                        cache[identifier] = response
-                        while True:
-                            try:
-                                status, response = cache.pop(next_identifier)
-                                status = self.STATUS[status]
-                                self.results.put(
-                                    (status, identifier if status == 'serialization_error' else
-                                     self.loads(response))
-                                )
-
-                                if next_identifier == last_identifier:
-                                    self.results.put(('end', None))
-                                    return
-                                next_identifier += 1
-                            except KeyError:
-                                break
 
     def iter_results(self, timeout=None):
         """
@@ -215,20 +230,17 @@ class Task(Base):  # pylint: disable=too-many-instance-attributes
         """
         while True:
             status, result = self.results.get(timeout=timeout)
-            if status == 'ok':
+            if status == self.STATUS['response']:
                 yield result
-            elif status in 'error':
+            elif status == self.STATUS['response_error']:
                 value, tb = result  # pylint: disable=invalid-name
                 LOGGER.error(tb)
                 raise value
-            elif status == 'timeout':
+            elif status in (self.STATUS['timeout'], self.STATUS['topic_error'],
+                            self.STATUS['serialization_error']):
                 raise result
-            elif status == 'end':
-                return
-            elif status == 'serialization_error':
-                raise SerializationError(
-                    "failed to serialize result for request with identifier %s" % result
-                )
+            elif status == self.STATUS['end']:
+                break
             else:
                 raise KeyError(status)  # pragma: no cover
 

@@ -56,7 +56,7 @@ def test_workers_running(workers):
         assert worker.is_alive
 
 
-def test_apply(broker, workers):
+def test_apply_success(broker, workers):
     request = {'fetches': 'z', 'context': {'x': 1, 'y': 3}}
     result = broker.apply(request)
     assert result == 1 / 3
@@ -66,6 +66,10 @@ def test_apply_error(broker, workers):
     request = {'fetches': 'z', 'context': {'x': 1, 'y': 0}}
     with pytest.raises(ZeroDivisionError):
         broker.apply(request)
+
+    # Ensure the workers didn't die
+    for worker in workers:
+        assert worker.is_alive
 
 
 def test_apply_batch(broker, workers):
@@ -143,3 +147,16 @@ def test_not_pickleable(broker, workers):
 def test_no_context(broker, workers):
     with pytest.raises(KeyError):
         broker.apply({})
+
+
+def test_worker_topic_mismatch(broker):
+    worker = pfmq.Worker(lambda: None, broker.backend_address, topic='other')
+    with pytest.raises(pfmq.TopicError):
+        worker.run()
+
+
+def test_task_topic_mismatch(broker, workers):
+    request = {'fetches': 'z', 'context': {'x': 1, 'y': 0}}
+    task = pfmq.Task([request], broker.frontend_address, topic='other', start=False)
+    with pytest.raises(pfmq.TopicError):
+        task.run()
