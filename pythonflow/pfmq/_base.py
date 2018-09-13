@@ -14,13 +14,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-import threading
+import enum
 import uuid
+import threading
 
 import zmq
 
-LOGGER = logging.getLogger(__name__)
+
+BYTEORDER = 'little'
+
+
+class Code(enum.Enum):
+    """
+    Codes for different message types.
+    """
+    REQUEST = b'\x00'
+    RESULT = b'\x01'
+    ERROR = b'\x02'
+    SERIALIZATION_ERROR = b'\x03'
+    SIGN_UP = b'\x04'
+    SIGN_OFF = b'\x05'
+    ENQUEUED = b'\x06'
+    CANCEL = b'\x07'
+    TIMEOUT = b'\x08'
+
 
 class Base:
     """
@@ -35,20 +52,9 @@ class Base:
     def __init__(self, start):
         self._thread = None
         self._cancel_address = f'inproc://{uuid.uuid4().hex}'
-        self._cancel_parent = zmq.Context.instance().socket(zmq.PAIR)  # pylint: disable=E1101
-        self._cancel_parent.bind(self._cancel_address)
 
         if start:
             self.run_async()
-
-    STATUS = {
-        'ok': b'\x00',
-        'end': b'\x01',
-        'error': b'\x02',
-        'timeout': b'\x03',
-        'serialization_error': b'\x04',
-    }
-    STATUS.update({value: key for key, value in STATUS.items()})
 
     def __enter__(self):
         self.run_async()
@@ -80,9 +86,10 @@ class Base:
             running.
         """
         if self.is_alive:
-            self._cancel_parent.send_multipart([b''])
+            with zmq.Context.instance().socket(zmq.PAIR) as socket:  # pylint: disable=E1101
+                socket.connect(self._cancel_address)
+                socket.send_multipart([b''])
             self._thread.join(timeout)
-            self._cancel_parent.close()
             return True
         return False
 

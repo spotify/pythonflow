@@ -13,21 +13,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import logging
 import uuid
+
 import zmq
 
-from ._base import Base
+from ._base import Base, Code
 from .task import Task, apply
-
 
 LOGGER = logging.getLogger(__name__)
 
 
 class Broker(Base):
     """
-    Message broker for tasks that are executed remotely.
+    Broker to distribute requests to workers and collate results.
 
     Parameters
     ----------
@@ -43,110 +42,90 @@ class Broker(Base):
         self.frontend_address = frontend_address or f'inproc://{uuid.uuid4().hex}'
         super(Broker, self).__init__(start)
 
-    def run(self):  # pylint: disable=too-many-statements,too-many-locals,too-many-branches
-        context = zmq.Context.instance()
+    def run(self):
         workers = set()
-        clients = set()
-        cache = {}
+        requests = []
+        results = []
 
-        # pylint: disable=E1101
-        with context.socket(zmq.ROUTER) as frontend, context.socket(zmq.ROUTER) as backend, \
-            context.socket(zmq.PAIR) as cancel:
-        # pylint: enable=E1101
+        # pylint: disable=no-member
+        with zmq.Context.instance().socket(zmq.PAIR) as cancel, \
+                zmq.Context.instance().socket(zmq.ROUTER) as frontend, \
+                zmq.Context.instance().socket(zmq.ROUTER) as backend:
+        # pylint: enable=no-member
 
-            cancel.connect(self._cancel_address)
+            cancel.bind(self._cancel_address)
+            LOGGER.debug("bound cancel socket to %s", self._cancel_address)
             frontend.bind(self.frontend_address)
-            LOGGER.debug('bound frontend to %s', self.frontend_address)
+            LOGGER.info("bound frontend to %s", self.frontend_address)
             backend.bind(self.backend_address)
-            LOGGER.debug('bound backend to %s', self.backend_address)
+            LOGGER.info("bound backend to %s", self.backend_address)
 
-            backend_poller = zmq.Poller()
-            backend_poller.register(backend, zmq.POLLIN)
-            backend_poller.register(cancel, zmq.POLLIN)
 
             poller = zmq.Poller()
+            poller.register(cancel, zmq.POLLIN)
             poller.register(frontend, zmq.POLLIN)
             poller.register(backend, zmq.POLLIN)
-            poller.register(cancel, zmq.POLLIN)
 
             while True:
-                # Only listen to the backend if no workers are available
-                if workers:
-                    LOGGER.debug('polling frontend and backend...')
-                    sockets = dict(poller.poll())
-                else:
-                    LOGGER.debug('polling backend...')
-                    sockets = dict(backend_poller.poll())
+                events = dict(poller.poll())
 
-                # Cancel the communication thread
-                if sockets.get(cancel) == zmq.POLLIN:
-                    LOGGER.debug('received CANCEL signal on %s', self._cancel_address)
-                    break
+                if events.get(cancel) == zmq.POLLIN:
+                    LOGGER.info("received CANCEL signal on %s", self._cancel_address)
+                    return
 
-                # Receive responses or sign-up messages from the backend
-                if sockets.get(backend) == zmq.POLLIN:
-                    worker, _, client, *message = backend.recv_multipart()
-                    workers.add(worker)
+                # Handle incoming results or sign-up messages
+                if events.get(backend) == zmq.POLLIN:
+                    worker, code, *parts = backend.recv_multipart()
+                    code = Code(code)
+                    if code in (Code.RESULT, Code.ERROR, Code.SERIALIZATION_ERROR):
+                        client, identifier, *parts = parts
+                        results.append([client, code, identifier, *parts])
+                        LOGGER.info("received %s from worker %s for client %s with identifier %s",
+                                    code, worker, client, identifier)
+                    elif code == Code.SIGN_UP:
+                        workers.add(worker)
+                        LOGGER.info("received %s from worker %s (now %d workers)", code, worker,
+                                    len(workers))
+                    elif code == Code.SIGN_OFF:
+                        workers.discard(worker)
+                        LOGGER.info("received %s from worker %s (now %d workers)", code, worker,
+                                    len(workers))
+                    else:  # pragma: no cover
+                        raise ValueError(code)
 
-                    if client:
-                        _, identifier, status, response = message
-                        LOGGER.debug(
-                            'received RESPONSE with identifier %s from %s for %s with status %s',
-                            int.from_bytes(identifier, 'little'), worker.hex(), client.hex(),
-                            self.STATUS[status]
-                        )
-                        # Try to forward the message to a waiting client
-                        try:
-                            clients.remove(client)
-                            self._forward_response(frontend, client, identifier, status, response)
-                        # Add it to the cache otherwise
-                        except KeyError:
-                            cache.setdefault(client, []).append((identifier, status, response))
-                    else:
-                        LOGGER.debug('received SIGN-UP message from %s; now %d workers',
-                                     worker.hex(), len(workers))
+                # Handle incoming requests
+                if events.get(frontend) == zmq.POLLIN:
+                    client, code, *parts = frontend.recv_multipart()
+                    code = Code(code)
+                    if code == Code.REQUEST:
+                        LOGGER.info("received %s from client %s", code, client)
+                        requests.append([client, code, *parts])
+                    else:  # pragma: no cover
+                        raise ValueError(code)
 
-                # Receive requests from the frontend, forward to the workers, and return responses
-                if sockets.get(frontend) == zmq.POLLIN:
-                    client, _, identifier, *request = frontend.recv_multipart()
-                    LOGGER.debug('received REQUEST with byte identifier %s from %s',
-                                 identifier, client.hex())
+                # Dispatch all requests to workers
+                while workers and requests:
+                    worker = workers.pop()
+                    client, code, identifier, *parts = requests.pop(0)
+                    backend.send_multipart([worker, code.value, client, identifier, *parts])
+                    LOGGER.info("sent %s to worker %s", Code.REQUEST, worker)
+                    # Let the client know we dispatched the message
+                    frontend.send_multipart([client, Code.ENQUEUED.value, identifier])
 
-                    if identifier:
-                        worker = workers.pop()
-                        backend.send_multipart([worker, _, client, _, identifier, *request])
-                        LOGGER.debug('forwarded REQUEST with identifier %s from %s to %s',
-                                     int.from_bytes(identifier, 'little'), client.hex(),
-                                     worker.hex())
+                # Dispatch all the results
+                while results:
+                    client, code, *parts = results.pop(0)
+                    frontend.send_multipart([client, code.value, *parts])
+                    LOGGER.info("sent %s to client %s", code, client)
 
-                    try:
-                        self._forward_response(frontend, client, *cache[client].pop(0))
-                    except (KeyError, IndexError):
-                        # Send a dispatch notification if the task sent a new message
-                        if identifier:
-                            frontend.send_multipart([client, _, _])
-                            LOGGER.debug('notified %s of REQUEST dispatch', client.hex())
-                        # Add the task to the list of tasks waiting for responses otherwise
-                        else:
-                            clients.add(client)
-
-        LOGGER.debug('exiting communication loop')
-
-    @classmethod
-    def _forward_response(cls, frontend, client, identifier, status, response):  # pylint: disable=too-many-arguments
-        frontend.send_multipart([client, b'', identifier, status, response])
-        LOGGER.debug('forwarded RESPONSE with identifier %s to %s with status %s',
-                     int.from_bytes(identifier, 'little'), client, cls.STATUS[status])
 
     def imap(self, requests, **kwargs):
         """
         Process a sequence of requests remotely.
-
         Parameters
         ----------
         requsests : iterable
             Sequence of requests to process.
-
         Returns
         -------
         task : Task
@@ -159,12 +138,10 @@ class Broker(Base):
     def apply(self, request, **kwargs):
         """
         Process a request remotely.
-
         Parameters
         ----------
         request : object
             Request to process.
-
         Returns
         -------
         ressult : object

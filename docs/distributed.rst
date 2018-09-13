@@ -50,8 +50,8 @@ Pythonflow provides a straightforward interface to turn your graph into a proces
     from pythonflow import pfmq
 
     backend_address = 'tcp://address-that-workers-should-connect-to'
-    worker = pfmq.Worker.from_graph(graph, backend_address)
-    worker.run()
+    with pfmq.Worker.from_graph(graph, backend_address) as worker:
+        worker.process_requests()
 
 Running the processors is up to you and you can use your favourite framework such as `ipyparallel <https://ipyparallel.readthedocs.io/en/latest/>`_ or `Foreman <https://www.theforeman.org/>`_.
 
@@ -85,7 +85,3 @@ Using :code:`imap` rather than using the built-in :code:`map` applied to :code:`
 .. note::
 
     By default, the consumer and processors will use :code:`pickle` to (de)serialize all messages. You may want to consider your own serialization format or use `msgpack <https://msgpack.org/index.html>`_.
-
-.. note::
-
-    Pythonflow `does not resend lost messages <http://zguide.zeromq.org/php:chapter4>`_ and your program will not recover if a message is lost.

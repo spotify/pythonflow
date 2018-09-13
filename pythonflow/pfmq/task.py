@@ -23,27 +23,26 @@ import uuid
 
 import zmq
 
-from ._base import Base
-
+from ._base import BYTEORDER, Base, Code
 
 LOGGER = logging.getLogger(__name__)
 
 
 class SerializationError(RuntimeError):
     """
-    Error serialising a remote result.
+    Raised if the result cannot be serialised.
+    """
+
+
+class RemoteError(RuntimeError):
+    """
+    Raised if a remote execution failed.
     """
 
 
 class Task(Base):  # pylint: disable=too-many-instance-attributes
     """
     A task that is executed remotely.
-
-    Tasks send one or more batches of `fetches` and `contexts` to the broker bound to `address`
-    using the format `identifier, request`. Upon each request, they wait for a message acknowledging
-    the receipt of the request comprising a single, empty frame or a result in the format
-    `identifier, result`. If all batches have been dispatched but not all results have been
-    received, tasks send a single empty frame to poll for additional results.
 
     Parameters
     ----------
@@ -59,178 +58,178 @@ class Task(Base):  # pylint: disable=too-many-instance-attributes
         Whether to start the event loop as a background thread.
     timeout : float
         Number of seconds before a request times out.
-    max_retries : int
+    num_retries : int
         Number of retry attempts.
     cache_size : int
         Maximum number of results to cache. If `cache_size <= 0`, the cache is infinite which can
         lead to the exhaustion of memory resources.
+    ordered : bool
+        Whether results are yielded in order.
     """
     def __init__(self, requests, address, dumps=None, loads=None, start=True, timeout=10,  # pylint: disable=too-many-arguments
-                 max_retries=3, max_results=1024):
+                 num_retries=3, cache_size=64, ordered=True):
         self.requests = requests
         self.address = address
         self.dumps = dumps or pickle.dumps
         self.loads = loads or pickle.loads
-        self.max_results = max_results
-        self.results = queue.Queue(self.max_results)
+        self.cache_size = cache_size
+        self.results = queue.Queue(self.cache_size)
         self.timeout = timeout
-        self.max_retries = max_retries
+        self.num_retries = num_retries
+        self.ordered = ordered
 
         super(Task, self).__init__(start)
 
-    def run(self):  # pylint: disable=too-many-statements,too-many-branches,too-many-locals
-        context = zmq.Context.instance()
-        num_retries = 0
+    def run(self):  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         identity = uuid.uuid4().bytes
         pending = collections.OrderedDict()
-        requests = iter(enumerate(self.requests, 0))
-        current_identifier = last_identifier = None
+        exhausted = False
         next_identifier = 0
+        requests = iter(enumerate(self.requests))
         cache = {}
 
-        while True:
-            with context.socket(zmq.PAIR) as cancel, context.socket(zmq.REQ) as socket:  # pylint: disable=E1101
-                cancel.connect(self._cancel_address)
-                socket.setsockopt(zmq.IDENTITY, identity)  # pylint: disable=E1101
-                socket.connect(self.address)
+        with zmq.Context.instance().socket(zmq.PAIR) as cancel:  # pylint: disable=no-member
+            cancel.bind(self._cancel_address)
+            LOGGER.debug("bound cancel socket to %s", self._cancel_address)
 
-                poller = zmq.Poller()
-                poller.register(socket, zmq.POLLIN)
-                poller.register(cancel, zmq.POLLIN)
+            while True:
+                # pylint: disable=no-member
+                with zmq.Context.instance().socket(zmq.DEALER) as socket:
+                    socket.setsockopt(zmq.IDENTITY, identity)
+                # pylint: enable=no-member
+                    socket.connect(self.address)
+                    LOGGER.debug("connected to broker frontend on %s with identity %s",
+                                 self.address, identity)
 
-                LOGGER.debug('connected %s to %s', identity, self.address)
+                    poller = zmq.Poller()
+                    poller.register(socket, zmq.POLLIN)
+                    poller.register(cancel, zmq.POLLIN)
 
-                while True:
-                    LOGGER.debug("%d pending messages", len(pending))
-                    # See whether we can find a request that has timed out
-                    identifier = message = None
-                    for candidate, item in pending.items():
-                        delta = time.time() - item['time']
-                        if delta > self.timeout:
-                            identifier = candidate
-                            LOGGER.info('request with identifier %d timed out', identifier)
-                            message = item['message']
-                        # We only need to check the first message
-                        break
+                    while True:
+                        message = None
+                        timeout = self.timeout
 
-                    # Get a new message
-                    if identifier is None:
-                        try:
-                            identifier, request = next(requests)
-                            num_bytes = max((identifier.bit_length() + 7) // 8, 1)
-                            message = [
-                                identifier.to_bytes(num_bytes, 'little'),
-                                self.dumps(request)
-                            ]
-                            # Store the most recent identifier
-                            current_identifier = identifier
-                            LOGGER.debug('new request with identifier %d', identifier)
-                        except StopIteration:
-                            last_identifier = last_identifier or current_identifier
-                            identifier = None
-                            message = [b'']
-                            LOGGER.debug('no more requests; waiting for responses')
+                        # Get the first pending message that has timed out, if any
+                        for identifier, item in pending.items():
+                            delta = time.time() - item['time']
+                            # Requeue the message if it has timed out
+                            if delta > self.timeout:
+                                num_tries = item['num_tries']
+                                if num_tries >= self.num_retries:
+                                    message = f"message with identifier {identifier} timed out " \
+                                        f"after {self.num_retries} retries"
+                                    self.results.put((Code.TIMEOUT, identifier,
+                                                      TimeoutError(message)))
+                                    LOGGER.error(message)
+                                    return
+                                message = item['message']
+                                del pending[identifier]
+                                LOGGER.info("retry #%d for request with identifier %d", num_tries,
+                                            identifier)
+                            # Reduce the timeout if it has not yet timed out
+                            else:
+                                timeout = self.timeout - delta
+                            # We only need to check the first message because `pending` is ordered
+                            break
 
-                    socket.send_multipart(message)
-                    LOGGER.debug('sent REQUEST with identifier %s: %s', identifier, message)
+                        # Get the next message if there are no pending ones
+                        if message is None and not exhausted:
+                            try:
+                                identifier, request = next(requests)
+                                num_bytes = max((identifier.bit_length() + 7) // 8, 1)
+                                message = [
+                                    Code.REQUEST.value,
+                                    identifier.to_bytes(num_bytes, BYTEORDER),
+                                    self.dumps(request)
+                                ]
+                                num_tries = 0
+                                LOGGER.info("queuing request with identifier %d", identifier)
+                            except StopIteration:
+                                LOGGER.debug("exhausted iterator of requests")
+                                exhausted = True
+                                if not pending:
+                                    self.results.put(None)
+                                    LOGGER.debug("enqueuing end marker")
+                                    return
 
-                    # Add to the list of pending requests
-                    if identifier is not None:
-                        pending[identifier] = {
-                            'message': message,
-                            'time': time.time()
-                        }
-                    del identifier
+                        # Send a message
+                        if message is not None:
+                            socket.send_multipart(message)
+                            pending[identifier] = {
+                                'time': time.time(),
+                                'num_tries': num_tries + 1,
+                                'message': message
+                            }
 
-                    # Retrieve a response
-                    LOGGER.debug('polling...')
-                    sockets = dict(poller.poll(1000 * self.timeout))
+                        events = dict(poller.poll(1000 * timeout))
 
-                    # Communication timed out
-                    if not sockets:
-                        num_retries += 1
-                        LOGGER.info('time out #%d for %s after %.3f seconds', num_retries,
-                                    self.address, self.timeout)
-                        if self.max_retries and num_retries >= self.max_retries:
-                            # The communication failed
-                            message = "maximum number of retries (%d) for %s exceeded" % \
-                                (self.max_retries, self.address)
-                            LOGGER.error(message)
-                            self.results.put(('timeout', TimeoutError(message)))
+                        if not events:
+                            break
+
+                        if events.get(cancel) == zmq.POLLIN:
+                            self.results.put((False, RuntimeError("task cancelled")))
+                            LOGGER.info("received CANCEL signal on %s", self._cancel_address)
                             return
-                        break
 
-                    # Reset the retry counter
-                    num_retries = 0
+                        # Receive results
+                        if events.get(socket) == zmq.POLLIN:
+                            code, identifier, *parts = socket.recv_multipart()
+                            identifier = int.from_bytes(identifier, BYTEORDER)
+                            code = Code(code)
+                            LOGGER.info("received %s for request with identifier %d", code,
+                                        identifier)
 
-                    # Cancel the communication thread
-                    if sockets.get(cancel) == zmq.POLLIN:
-                        LOGGER.debug('received CANCEL signal on %s', self._cancel_address)
-                        return
+                            if code in (Code.RESULT, Code.ERROR, Code.SERIALIZATION_ERROR):
+                                cache[identifier] = (code, identifier, *parts)
+                                pending.pop(identifier)
+                            elif code == Code.ENQUEUED:
+                                continue
+                            else:  # pragma: no cover
+                                raise ValueError(code)
 
-                    if sockets.get(socket) == zmq.POLLIN:
-                        identifier, *response = socket.recv_multipart()
-                        if not identifier:
-                            LOGGER.debug('received dispatch notification')
-                            continue
-
-                        # Decode the identifier and remove the corresponding request from `pending`
-                        identifier = int.from_bytes(identifier, 'little')
-                        LOGGER.debug('received RESPONSE for identifier %d (next: %d, end: %s)',
-                                     identifier, next_identifier, last_identifier)
-                        pending.pop(identifier, None)
-
-                        # Drop the message if it is outdated
-                        if identifier < next_identifier:  # pragma: no cover
-                            LOGGER.debug('dropped RESPONSE with identifier %d (next: %d)',
-                                         identifier, next_identifier)
-                            continue
-
-                        # Add the message to the cache
-                        cache[identifier] = response
+                        # Put items on the results queue in the correct order
                         while True:
                             try:
-                                status, response = cache.pop(next_identifier)
-                                status = self.STATUS[status]
-                                self.results.put(
-                                    (status, identifier if status == 'serialization_error' else
-                                     self.loads(response))
-                                )
-
-                                if next_identifier == last_identifier:
-                                    self.results.put(('end', None))
-                                    return
-                                next_identifier += 1
+                                if self.ordered:
+                                    value = cache.pop(next_identifier)
+                                    next_identifier += 1
+                                else:
+                                    _, value = cache.popitem()
+                                self.results.put(value)
                             except KeyError:
                                 break
 
+                        # We've received results for all messages
+                        if exhausted and not pending:
+                            self.results.put(None)
+                            LOGGER.debug("enqueuing end marker")
+                            return
+
     def iter_results(self, timeout=None):
         """
-        Iterate over the results.
+        Iterate over results of the task.
 
         Parameters
         ----------
         timeout : float
-            Timeout for getting results.
+            Timeout in seconds.
         """
         while True:
-            status, result = self.results.get(timeout=timeout)
-            if status == 'ok':
-                yield result
-            elif status in 'error':
-                value, tb = result  # pylint: disable=invalid-name
-                LOGGER.error(tb)
-                raise value
-            elif status == 'timeout':
-                raise result
-            elif status == 'end':
+            item = self.results.get(timeout=timeout)
+            if item is None:
                 return
-            elif status == 'serialization_error':
-                raise SerializationError(
-                    "failed to serialize result for request with identifier %s" % result
-                )
-            else:
-                raise KeyError(status)  # pragma: no cover
+            code, identifier, *parts = item
+            if code == Code.RESULT:
+                yield self.loads(*parts)
+            elif code == Code.ERROR:
+                ex, traceback = self.loads(*parts)
+                raise ex from RemoteError(traceback)
+            elif code == Code.SERIALIZATION_ERROR:
+                raise SerializationError(identifier)
+            elif code == Code.TIMEOUT:
+                raise parts[0]
+            else:  # pragma: no cover
+                raise ValueError(code)
 
     def __iter__(self):
         return self.iter_results()
@@ -246,7 +245,7 @@ def apply(request, frontend_address, **kwargs):
         Request to process.
     frontend_address : str
         Address of the broker frontend.
-
+        
     Returns
     -------
     ressult : object

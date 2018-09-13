@@ -42,6 +42,7 @@ class lazy_import:  # pylint: disable=invalid-name, too-few-public-methods
             self._module = __import__(self.module)
         return getattr(self._module, name)
 
+
 class batch_iterable:  # pylint: disable=invalid-name, too-few-public-methods
     """
     Split an iterable into batches of a specified size.
