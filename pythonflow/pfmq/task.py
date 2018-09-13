@@ -245,10 +245,10 @@ def apply(request, frontend_address, **kwargs):
         Request to process.
     frontend_address : str
         Address of the broker frontend.
-        
+
     Returns
     -------
-    ressult : object
+    result : object
         Result of remotely-processed request.
     """
     task = Task([request], frontend_address, start=False, **kwargs)

@@ -93,7 +93,7 @@ class try_(Operation):  # pylint: disable=C0103,W0223
                 value = self.evaluate_operation(operation, context, callback=callback)
                 context[self] = value
                 return value
-            except:  # NOQA
+            except:
                 # Check the exceptions
                 _, ex, _ = sys.exc_info()
                 for type_, alternative in except_:

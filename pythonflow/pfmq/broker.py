@@ -122,10 +122,12 @@ class Broker(Base):
     def imap(self, requests, **kwargs):
         """
         Process a sequence of requests remotely.
+
         Parameters
         ----------
         requsests : iterable
             Sequence of requests to process.
+
         Returns
         -------
         task : Task
@@ -138,10 +140,12 @@ class Broker(Base):
     def apply(self, request, **kwargs):
         """
         Process a request remotely.
+
         Parameters
         ----------
         request : object
             Request to process.
+
         Returns
         -------
         ressult : object

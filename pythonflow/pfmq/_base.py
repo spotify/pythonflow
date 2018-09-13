@@ -15,11 +15,10 @@
 # limitations under the License.
 
 import enum
-import uuid
 import threading
+import uuid
 
 import zmq
-
 
 BYTEORDER = 'little'
 

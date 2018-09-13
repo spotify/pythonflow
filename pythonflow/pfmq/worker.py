@@ -52,7 +52,7 @@ class Worker(Base):  # pylint: disable=too-many-instance-attributes
     prefetch : int
         Number of requests to prefetch from the broker.
     """
-    def __init__(self, target, address, dumps=None, loads=None, start=True, timeout=None,  # pylint: disable=too-many-arguments
+    def __init__(self, target, address, dumps=None, loads=None, start=True, timeout=10,  # pylint: disable=too-many-arguments
                  num_retries=None, prefetch=1):
         self.target = target
         self.address = address
