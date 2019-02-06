@@ -20,6 +20,7 @@ import contextlib
 import functools
 import importlib
 import operator
+import threading
 import traceback
 import uuid
 
@@ -34,16 +35,17 @@ class Graph:
         self.operations = {}
         self.dependencies = []
 
-    default_graph = None
+    _globals = threading.local()
 
     def __enter__(self):
-        assert self.default_graph is None, "cannot have more than one default graph"
-        Graph.default_graph = self
+        assert getattr(self._globals, 'default_graph', None) is  None, \
+            "cannot have more than one default graph"
+        Graph._globals.default_graph = self
         return self
 
     def __exit__(self, *args):
-        assert self.default_graph is self
-        Graph.default_graph = None
+        assert self._globals.default_graph is self
+        Graph._globals.default_graph = None
 
     def normalize_operation(self, operation):  # pylint:disable=W0621
         """
@@ -183,7 +185,7 @@ class Graph:
         ValueError
             If no `Graph` instance can be obtained.
         """
-        graph = graph or Graph.default_graph
+        graph = graph or Graph._globals.default_graph
         if not graph:
             raise ValueError("`graph` must be given explicitly or a default graph must be set")
         return graph
