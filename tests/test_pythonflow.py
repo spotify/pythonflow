@@ -16,6 +16,7 @@ import os
 import pickle
 import random
 import tempfile
+import threading
 import uuid
 
 import pytest
@@ -535,3 +536,18 @@ def test_placeholder_with_kwargs():
         b, c = a
 
     assert graph([b, c], {a: [1, 2]}) == (1, 2)
+
+
+def test_thread_compatibility():
+    def work(event):
+        with pf.Graph() as graph:
+            event.wait()
+    event = threading.Event()
+    thread = threading.Thread(target=work, args=(event,))
+    thread.start()
+    try:
+        with pf.Graph() as graph:
+            event.set()
+    except AssertionError as e:
+        event.set()
+        raise e
