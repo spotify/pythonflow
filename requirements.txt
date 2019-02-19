@@ -4,7 +4,7 @@
 #
 #    pip-compile --output-file requirements.txt requirements.in
 #
--e file:///Users/till/git/pythonflow
+-e .
 alabaster==0.7.12         # via sphinx
 astroid==1.6.5            # via pylint
 atomicwrites==1.3.0       # via pytest

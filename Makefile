@@ -19,3 +19,5 @@ clean :
 
 requirements.txt : requirements.in setup.py
 	pip-compile -v requirements.in
+	./make_paths_relative.py < requirements.txt > requirements.tmp
+	mv requirements.tmp $@
