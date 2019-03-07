@@ -1,7 +1,7 @@
 Distributed data preparation
 ============================
 
-Training data for machine learning models is often transformed before the learning process starts. But sometimes it is more convenient to generate the training data online rather than precomputing it: Maybe the data we want to present to the model depends on the current state of the model, or maybe we want to experiment with different data preparation techniques without having to rerun pipelines. This document is concerned with helping you speed up the data preparation by distributing it across multiple cores or machines.
+Training data for machine learning models is often transformed before the learning process starts. But sometimes it is more convenient to generate the training data online rather than precomputing it: maybe the data we want to present to the model depends on the current state of the model, or maybe we want to experiment with different data preparation techniques without having to rerun pipelines. This document is concerned with helping you speed up the data preparation by distributing it across multiple cores or machines.
 
 Data preprocessing can generally be expressed as :code:`sink = map(transformation, source)`, where :code:`source` is a generator of input data, :code:`transformation` is the transformation to be applied, and :code:`sink` is an iterable over the transformed data. We use `ZeroMQ <https://pyzmq.readthedocs.io/en/latest/>`_ to distribute the data processing using a `load-balancing message broker <http://zguide.zeromq.org/py:all#A-Load-Balancing-Message-Broker>`_ illustrated below. Each task (also known as a client) sends one or more messages to the broker from a :code:`source`. The broker distributes the messages amongst a set of workers that apply the desired :code:`transformation`. Finally, the broker collects the results and forwards them to the relevant task which act as a :code:`sink`.
 
@@ -49,11 +49,15 @@ Pythonflow provides a straightforward interface to turn your graph into a proces
 
     from pythonflow import pfmq
 
-    backend_address = 'tcp://address-that-workers-should-connect-to'
-    with pfmq.Worker.from_graph(graph, backend_address) as worker:
+    BACKEND_ADDRESS = 'tcp://address-that-workers-should-connect-to'
+    with pfmq.Worker.from_graph(graph, BACKEND_ADDRESS) as worker:
         worker.process_requests()
 
-Running the processors is up to you and you can use your favourite framework such as `ipyparallel <https://ipyparallel.readthedocs.io/en/latest/>`_ or `Foreman <https://www.theforeman.org/>`_.
+Using the :code:`with` statement ensures that the background thread used for communication is shut down properly and you don't end up with zombie threads. Alternatively, you can manually call the :code:`cancel` method in your teardown code. The :code:`Worker` class supports the optional keyword argument :code:`prefetch` which determines the number of messages that the worker prefetches. It defaults to :code:`1` which is appropriate in most cases. However, increasing the number of prefetched messages can be helpful when you have high latency to make sure your worker doesn't run out of messages to process.
+
+.. note::
+
+    Running the workers is up to you and you can use your favourite framework such as `ipyparallel <https://ipyparallel.readthedocs.io/en/latest/>`_ or `Foreman <https://www.theforeman.org/>`_.
 
 
 Consuming the data
@@ -63,7 +67,7 @@ Once you have started one or more processors, you can create a message broker to
 
 .. code-block:: python
 
-    broker = pfmq.MessageBroker(backend_address)
+    broker = pfmq.Broker(BACKEND_ADDRESS)
     broker.run_async()
 
     request = {
@@ -80,7 +84,7 @@ Calling the consumer directly is useful for debugging, but in most applications 
 
     iterable = broker.imap(requests)
 
-Using :code:`imap` rather than using the built-in :code:`map` applied to :code:`broker.apply` has significant performance benefits: the message broker will dispatch as many messages as there are connected workers. Using the built-in :code:`map` will only use one worker at a given time.
+Using :code:`imap` rather than using the built-in :code:`map` applied to :code:`broker.apply` has significant performance benefits: the message broker will dispatch as many messages as there are connected workers. In contrast, using the built-in :code:`map` will only use one worker at a given time.
 
 .. note::
 
