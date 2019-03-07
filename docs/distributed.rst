@@ -57,7 +57,7 @@ Using the :code:`with` statement ensures that the background thread used for com
 
 .. note::
 
-    Running the workers is up to you and you can use your favourite framework such as `ipyparallel <https://ipyparallel.readthedocs.io/en/latest/>`_ or `Foreman <https://www.theforeman.org/>`_.
+    Running the workers is up to you, and you can use your favourite framework such as `ipyparallel <https://ipyparallel.readthedocs.io/en/latest/>`_ or `Foreman <https://www.theforeman.org/>`_.
 
 
 Consuming the data
