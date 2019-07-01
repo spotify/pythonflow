@@ -531,11 +531,11 @@ def opmethod(target=None, **kwargs):
     """
     Decorator for creating operations from functions.
     """
-    # This is called when the decorator is used with arguments
+    # This is called when the decorator is used without arguments
     if target is None:
         return functools.partial(opmethod, **kwargs)
 
-    # This is called when the decorator is used without arguments
+    # This is called when the decorator is used with arguments
     @functools.wraps(target)
     def _wrapper(*args, **kwargs_inner):
         return func_op(target, *args, **kwargs_inner, **kwargs)
