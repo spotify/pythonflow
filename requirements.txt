@@ -52,6 +52,6 @@ sphinx==1.8.4
 sphinxcontrib-websupport==1.1.0  # via sphinx
 tqdm==4.31.1              # via twine
 twine==1.13.0
-urllib3==1.24.1           # via requests
+urllib3==1.24.2           # via requests
 webencodings==0.5.1       # via bleach
 wrapt==1.11.1             # via astroid
