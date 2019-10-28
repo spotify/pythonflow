@@ -41,8 +41,9 @@ class conditional(Operation):  # pylint: disable=C0103,W0223
     """
     Return `x` if `predicate` is `True` and `y` otherwise.
 
-    Note that the conditional operation will only execute one branch of the computation graph
-    depending on `predicate`.
+    .. note::
+        The conditional operation will only execute one branch of the computation graph depending on
+        `predicate`.
     """
     def __init__(self, predicate, x, y=None, *, length=None, name=None, dependencies=None):  # pylint: disable=W0235
         super(conditional, self).__init__(predicate, x, y,
@@ -67,7 +68,8 @@ class try_(Operation):  # pylint: disable=C0103,W0223
     Try to evaluate `operation`, fall back to alternative operations in `except_`, and ensure that
     `finally_` is evaluated.
 
-    Note that the alternative operations will only be executed if the target operation fails.
+    .. note::
+        The alternative operations will only be executed if the target operation fails.
 
     Parameters
     ----------

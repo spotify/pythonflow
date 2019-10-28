@@ -82,6 +82,10 @@ class Graph:
         """
         Normalize a context by replacing all operation names with operation instances.
 
+        .. note::
+           This function modifies the context in place. Use :code:`context=context.copy()` to avoid
+           the context being modified.
+
         Parameters
         ----------
         context : dict[Operation or str, object]
@@ -126,6 +130,10 @@ class Graph:
     def apply(self, fetches, context=None, *, callback=None, **kwargs):
         """
         Evaluate one or more operations given a context.
+
+        .. note::
+           This function modifies the context in place. Use :code:`context=context.copy()` to avoid
+           the context being modified.
 
         Parameters
         ----------
