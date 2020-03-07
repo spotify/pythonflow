@@ -15,7 +15,7 @@
 # limitations under the License.
 
 import builtins
-import collections
+import collections.abc as collections
 import contextlib
 import functools
 import importlib
