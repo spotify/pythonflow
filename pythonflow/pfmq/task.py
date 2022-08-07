@@ -1,5 +1,5 @@
-# pylint: disable=missing-docstring
-# pylint: enable=missing-docstring
+
+
 # Copyright 2018 Spotify AB
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,7 +35,7 @@ class SerializationError(RuntimeError):
     """
 
 
-class Task(Base):  # pylint: disable=too-many-instance-attributes
+class Task(Base):
     """
     A task that is executed remotely.
 
@@ -65,7 +65,7 @@ class Task(Base):  # pylint: disable=too-many-instance-attributes
         Maximum number of results to cache. If `cache_size <= 0`, the cache is infinite which can
         lead to the exhaustion of memory resources.
     """
-    def __init__(self, requests, address, dumps=None, loads=None, start=True, timeout=10,  # pylint: disable=too-many-arguments
+    def __init__(self, requests, address, dumps=None, loads=None, start=True, timeout=10,
                  max_retries=3, max_results=1024):
         self.requests = requests
         self.address = address
@@ -78,7 +78,7 @@ class Task(Base):  # pylint: disable=too-many-instance-attributes
 
         super(Task, self).__init__(start)
 
-    def run(self):  # pylint: disable=too-many-statements,too-many-branches,too-many-locals
+    def run(self):
         context = zmq.Context.instance()
         num_retries = 0
         identity = uuid.uuid4().bytes
@@ -89,9 +89,9 @@ class Task(Base):  # pylint: disable=too-many-instance-attributes
         cache = {}
 
         while True:
-            with context.socket(zmq.PAIR) as cancel, context.socket(zmq.REQ) as socket:  # pylint: disable=E1101
+            with context.socket(zmq.PAIR) as cancel, context.socket(zmq.REQ) as socket:
                 cancel.connect(self._cancel_address)
-                socket.setsockopt(zmq.IDENTITY, identity)  # pylint: disable=E1101
+                socket.setsockopt(zmq.IDENTITY, identity)
                 socket.connect(self.address)
 
                 poller = zmq.Poller()
@@ -158,7 +158,7 @@ class Task(Base):  # pylint: disable=too-many-instance-attributes
                             LOGGER.error(message)
                             self.results.put(('timeout', TimeoutError(message)))
                             return
-                        break
+                        break  # pragma: no cover
 
                     # Reset the retry counter
                     num_retries = 0
@@ -218,7 +218,7 @@ class Task(Base):  # pylint: disable=too-many-instance-attributes
             if status == 'ok':
                 yield result
             elif status in 'error':
-                value, tb = result  # pylint: disable=invalid-name
+                value, tb = result
                 LOGGER.error(tb)
                 raise value
             elif status == 'timeout':

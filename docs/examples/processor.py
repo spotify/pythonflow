@@ -17,6 +17,7 @@ GRAPHS = {
     'benchmark': create_benchmark_graph,
 }
 
+
 def start_processor(args):
     graph = GRAPHS[args.graph]()
     with pf.Processor.from_graph(args.push_address, args.pull_address, graph) as processor:
@@ -55,7 +56,7 @@ def entrypoint(args=None):
             for processor in processors:
                 if processor.join(1) is not None:
                     break
-    except:  # pylint: disable=broad-except
+    except:  # noqa: E722
         print("Processors interrupted.")
 
     for processor in processors:

@@ -5,7 +5,7 @@ all : tests docs
 tests : code_tests lint_tests
 
 lint_tests :
-	pylint pythonflow
+	flake8
 
 code_tests :
 	py.test --cov pythonflow --cov-fail-under=100 --cov-report=term-missing --cov-report=html --verbose --durations=5 -s

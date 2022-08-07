@@ -94,6 +94,7 @@ def test_task_context(broker, workers, requests):
     # Make sure the task finishes
     task._thread.join()
 
+
 def test_task_context_not_started(broker, workers, requests):
     with broker.imap(requests, start=False) as task:
         assert task.is_alive
@@ -122,6 +123,7 @@ def test_cancel_not_running(broker):
     broker.cancel()
     assert not broker.is_alive
     broker.cancel()
+
 
 def test_imap_not_running(broker):
     broker.cancel()
