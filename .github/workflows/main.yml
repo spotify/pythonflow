@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        python-version: [3.7, 3.8, 3.9, 3.10]
+    name: Continuous Integration
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: "actions/checkout@v2"
+      - uses: "actions/setup-python@v2"
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/cache@v2
+        with:
+          path: ${{ env.pythonLocation }}
+          key: ${{ env.pythonLocation }}-${{ hashFiles('test_requirements.txt') }}
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Build the project
+        run: make
