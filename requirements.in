@@ -1,4 +1,4 @@
--e .
+-e file:.
 twine>=1.9.1
 pytest>=3.2.1
 pytest-cov>=2.5.1
