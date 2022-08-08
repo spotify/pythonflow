@@ -1,5 +1,5 @@
-# pylint: disable=missing-docstring
-# pylint: enable=missing-docstring
+
+
 # Copyright 2017 Spotify AB
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,7 +24,7 @@ import time
 LOGGER = logging.getLogger(__name__)
 
 
-class lazy_import:  # pylint: disable=invalid-name, too-few-public-methods
+class lazy_import:
     """
     Lazily import the given module.
 
@@ -42,7 +42,8 @@ class lazy_import:  # pylint: disable=invalid-name, too-few-public-methods
             self._module = __import__(self.module)
         return getattr(self._module, name)
 
-class batch_iterable:  # pylint: disable=invalid-name, too-few-public-methods
+
+class batch_iterable:
     """
     Split an iterable into batches of a specified size.
 
@@ -76,7 +77,7 @@ class batch_iterable:  # pylint: disable=invalid-name, too-few-public-methods
             yield tuple(zip(*batch)) if self.transpose else batch
 
 
-class Profiler:  # pylint: disable=too-few-public-methods
+class Profiler:
     """
     Callback for profiling computational graphs.
 

@@ -1,5 +1,5 @@
-# pylint: disable=missing-docstring
-# pylint: enable=missing-docstring
+
+
 # Copyright 2018 Spotify AB
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .task import Task, SerializationError, apply
-from .broker import Broker
-from .worker import Worker
+from .task import Task, SerializationError, apply  # noqa: F401
+from .broker import Broker  # noqa: F401
+from .worker import Worker  # noqa: F401

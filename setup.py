@@ -1,5 +1,5 @@
-# pylint: disable=missing-docstring
-# pylint: enable=missing-docstring
+
+
 # Copyright 2017 Spotify AB
 #
 # Licensed under the Apache License, Version 2.0 (the "License");

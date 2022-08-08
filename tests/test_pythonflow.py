@@ -17,7 +17,6 @@ import pickle
 import random
 import tempfile
 import threading
-import uuid
 
 import pytest
 import pythonflow as pf
@@ -98,7 +97,7 @@ def binary_operators(request):
 def test_binary_operators_left(binary_operators):
     operator, a, b, expected = binary_operators
     with pf.Graph() as graph:
-        _a = pf.constant(a)
+        _a = pf.constant(a)  # noqa: F841
         operation = eval('_a %s b' % operator)
 
     actual = graph(operation)
@@ -109,7 +108,7 @@ def test_binary_operators_left(binary_operators):
 def test_binary_operators_right(binary_operators):
     operator, a, b, expected = binary_operators
     with pf.Graph() as graph:
-        _b = pf.constant(b)
+        _b = pf.constant(b)  # noqa: F841
         operation = eval('a %s _b' % operator)
 
     actual = graph(operation)
@@ -295,14 +294,14 @@ def test_lazy_constant():
 
 def test_lazy_constant_not_callable():
     with pytest.raises(ValueError):
-        with pf.Graph() as graph:
+        with pf.Graph():
             pf.lazy_constant(None)
 
 
 def test_graph_pickle():
     with pf.Graph() as graph:
         x = pf.placeholder('x')
-        y = pf.pow_(x, 3, name='y')
+        pf.pow_(x, 3, name='y')
 
     _x = random.uniform(0, 1)
     desired = graph('y', x=_x)
@@ -369,7 +368,7 @@ def test_slice():
 
 
 def test_bool():
-    with pf.Graph() as graph:
+    with pf.Graph():
         a = pf.placeholder()
 
     assert a
@@ -540,13 +539,13 @@ def test_placeholder_with_kwargs():
 
 def test_thread_compatibility():
     def work(event):
-        with pf.Graph() as graph:
+        with pf.Graph():
             event.wait()
     event = threading.Event()
     thread = threading.Thread(target=work, args=(event,))
     thread.start()
     try:
-        with pf.Graph() as graph:
+        with pf.Graph():
             event.set()
     except AssertionError as e:
         event.set()

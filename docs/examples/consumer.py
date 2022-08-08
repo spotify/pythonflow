@@ -1,5 +1,4 @@
 import argparse
-import itertools as it
 import multiprocessing
 import re
 import textwrap
@@ -96,6 +95,7 @@ def entrypoint(args=None):
             1000 / np.mean(deltas)
         ))
     print(summary)
+
 
 if __name__ == '__main__':
     entrypoint()

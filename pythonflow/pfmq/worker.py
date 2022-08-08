@@ -1,5 +1,5 @@
-# pylint: disable=missing-docstring
-# pylint: enable=missing-docstring
+
+
 # Copyright 2018 Spotify AB
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -55,7 +55,7 @@ class Worker(Base):
         Number of retry attempts or `None` for indefinite retries. Defaults to `None` for workers
         because they will time out if the load balancer does not provide any work.
     """
-    def __init__(self, target, address, dumps=None, loads=None, start=False, timeout=10,  # pylint: disable=too-many-arguments
+    def __init__(self, target, address, dumps=None, loads=None, start=False, timeout=10,
                  max_retries=None):
         self.target = target
         self.address = address
@@ -66,16 +66,16 @@ class Worker(Base):
 
         super(Worker, self).__init__(start)
 
-    def run(self):  # pylint: disable=too-many-locals
+    def run(self):
         context = zmq.Context.instance()
         # Use a specific identity for the worker such that reconnects don't change it.
         identity = uuid.uuid4().bytes
 
         num_retries = 0
         while self.max_retries is None or num_retries < self.max_retries:
-            with context.socket(zmq.REQ) as socket, context.socket(zmq.PAIR) as cancel:  # pylint: disable=E1101
+            with context.socket(zmq.REQ) as socket, context.socket(zmq.PAIR) as cancel:
                 cancel.connect(self._cancel_address)
-                socket.setsockopt(zmq.IDENTITY, identity)  # pylint: disable=E1101
+                socket.setsockopt(zmq.IDENTITY, identity)
                 socket.connect(self.address)
                 LOGGER.debug('connected to %s', self.address)
 
@@ -112,8 +112,8 @@ class Worker(Base):
                         try:
                             response = self.target(self.loads(*request))
                             status = self.STATUS['ok']
-                        except Exception:  # pylint: disable=broad-except
-                            etype, value, tb = sys.exc_info()  # pylint: disable=invalid-name
+                        except Exception:
+                            etype, value, tb = sys.exc_info()
                             response = value, "".join(traceback.format_exception(etype, value, tb))
                             status = self.STATUS['error']
                             LOGGER.exception("failed to process REQUEST with identifier %d from %s",
@@ -121,7 +121,7 @@ class Worker(Base):
 
                         try:
                             response = self.dumps(response)
-                        except Exception:  # pylint: disable=broad-except
+                        except Exception:
                             LOGGER.exception(
                                 "failed to serialise RESPONSE with identifier %d for %s",
                                 int.from_bytes(identifier, 'little'), client.hex()
