@@ -15,7 +15,7 @@
 # limitations under the License.
 
 import builtins
-import collections
+import collections.abc
 import contextlib
 import functools
 import importlib
@@ -107,7 +107,7 @@ class Graph:
         """
         if context is None:
             context = {}
-        elif not isinstance(context, collections.Mapping):
+        elif not isinstance(context, collections.abc.Mapping):
             raise ValueError("`context` must be a mapping.")
 
         operations = list(context)
@@ -161,7 +161,7 @@ class Graph:
         if isinstance(fetches, (str, Operation)):
             fetches = [fetches]
             single = True
-        elif isinstance(fetches, collections.Sequence):
+        elif isinstance(fetches, collections.abc.Sequence):
             single = False
         else:
             raise ValueError("`fetches` must be an `Operation` instance, operation name, or a "
