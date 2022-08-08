@@ -1,8 +1,8 @@
--e .
+-e file:.
 twine>=1.9.1
 pytest>=3.2.1
 pytest-cov>=2.5.1
-pylint<=1.9.3
+flake8
 pyzmq>=17.0.0
 matplotlib>=2.0.0
 scipy

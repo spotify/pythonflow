@@ -1,5 +1,5 @@
-# pylint: disable=missing-docstring
-# pylint: enable=missing-docstring
+
+
 # Copyright 2018 Spotify AB
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,16 +43,14 @@ class Broker(Base):
         self.frontend_address = frontend_address or f'inproc://{uuid.uuid4().hex}'
         super(Broker, self).__init__(start)
 
-    def run(self):  # pylint: disable=too-many-statements,too-many-locals,too-many-branches
+    def run(self):
         context = zmq.Context.instance()
         workers = set()
         clients = set()
         cache = {}
 
-        # pylint: disable=E1101
         with context.socket(zmq.ROUTER) as frontend, context.socket(zmq.ROUTER) as backend, \
-            context.socket(zmq.PAIR) as cancel:
-        # pylint: enable=E1101
+                context.socket(zmq.PAIR) as cancel:
 
             cancel.connect(self._cancel_address)
             frontend.bind(self.frontend_address)
@@ -133,7 +131,7 @@ class Broker(Base):
         LOGGER.debug('exiting communication loop')
 
     @classmethod
-    def _forward_response(cls, frontend, client, identifier, status, response):  # pylint: disable=too-many-arguments
+    def _forward_response(cls, frontend, client, identifier, status, response):
         frontend.send_multipart([client, b'', identifier, status, response])
         LOGGER.debug('forwarded RESPONSE with identifier %s to %s with status %s',
                      int.from_bytes(identifier, 'little'), client, cls.STATUS[status])

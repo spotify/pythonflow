@@ -1,5 +1,5 @@
-# pylint: disable=missing-docstring
-# pylint: enable=missing-docstring
+
+
 # Copyright 2017 Spotify AB
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,21 +23,21 @@ from .core import opmethod, Operation, func_op, hash_
 from .util import _noop_callback, deprecated
 
 
-class placeholder(Operation):  # pylint: disable=C0103,R0903
+class placeholder(Operation):
     """
     Placeholder that needs to be given in the context to be evaluated.
     """
     def __init__(self, name=None, **kwargs):
         super(placeholder, self).__init__(name=name, **kwargs)
 
-    def _evaluate(self):  # pylint: disable=W0221
+    def _evaluate(self):
         raise ValueError("missing value for placeholder '%s'" % self.name)
 
     def __repr__(self):
         return "<pf.placeholder '%s'>" % self.name
 
 
-class conditional(Operation):  # pylint: disable=C0103,W0223
+class conditional(Operation):
     """
     Return `x` if `predicate` is `True` and `y` otherwise.
 
@@ -45,7 +45,7 @@ class conditional(Operation):  # pylint: disable=C0103,W0223
         The conditional operation will only execute one branch of the computation graph depending on
         `predicate`.
     """
-    def __init__(self, predicate, x, y=None, *, length=None, name=None, dependencies=None):  # pylint: disable=W0235
+    def __init__(self, predicate, x, y=None, *, length=None, name=None, dependencies=None):
         super(conditional, self).__init__(predicate, x, y,
                                           length=length, name=name, dependencies=dependencies)
 
@@ -54,7 +54,7 @@ class conditional(Operation):  # pylint: disable=C0103,W0223
         callback = callback or _noop_callback
         self.evaluate_dependencies(context, callback)
 
-        predicate, x, y = self.args  # pylint: disable=E0632,C0103
+        predicate, x, y = self.args
         # Evaluate the predicate and pick the right operation
         predicate = self.evaluate_operation(predicate, context, callback=callback)
         with callback(self, context):
@@ -63,7 +63,7 @@ class conditional(Operation):  # pylint: disable=C0103,W0223
         return value
 
 
-class try_(Operation):  # pylint: disable=C0103,W0223
+class try_(Operation):
     """
     Try to evaluate `operation`, fall back to alternative operations in `except_`, and ensure that
     `finally_` is evaluated.
@@ -89,13 +89,13 @@ class try_(Operation):  # pylint: disable=C0103,W0223
         callback = callback or _noop_callback
         self.evaluate_dependencies(context, callback=callback)
 
-        operation, except_, finally_ = self.args # pylint: disable=E0632,C0103
+        operation, except_, finally_ = self.args
         with callback(self, context):
             try:
                 value = self.evaluate_operation(operation, context, callback=callback)
                 context[self] = value
                 return value
-            except:
+            except:  # noqa: E722
                 # Check the exceptions
                 _, ex, _ = sys.exc_info()
                 for type_, alternative in except_:
@@ -139,18 +139,18 @@ def cache(operation, get, put, key=None):
     return try_(
         func_op(get, key), [
             ((KeyError, FileNotFoundError),
-             identity(operation, dependencies=[func_op(put, key, operation)]))  # pylint: disable=unexpected-keyword-arg
+             identity(operation, dependencies=[func_op(put, key, operation)]))
         ]
     )
 
 
 def _pickle_load(filename):
-    with open(filename, 'rb') as fp:  # pylint: disable=invalid-name
+    with open(filename, 'rb') as fp:
         return pickle.load(fp)
 
 
 def _pickle_dump(value, filename):
-    with open(filename, 'wb') as fp:  # pylint: disable=invalid-name
+    with open(filename, 'wb') as fp:
         pickle.dump(value, fp)
 
 
@@ -196,11 +196,11 @@ def identity(value):
 
 
 # Short hand for the identity
-constant = identity  # pylint: disable=invalid-name
+constant = identity
 
 
 @opmethod
-def assert_(condition, message=None, *args, value=None):  # pylint: disable=keyword-arg-before-vararg
+def assert_(condition, message=None, *args, value=None):
     """
     Return `value` if the `condition` is satisfied and raise an `AssertionError` with the specified
     `message` and `args` if not.
@@ -244,33 +244,33 @@ class Logger:  # pragma: no cover
         self.logger = logging.getLogger(logger_name)
 
     @functools.wraps(logging.Logger.log)
-    def log(self, level, message, *args, **kwargs):  # pylint: disable=missing-docstring
+    def log(self, level, message, *args, **kwargs):
         if isinstance(level, str):
             level = getattr(logging, level.upper())
         return func_op(self.logger.log, level, message, *args, **kwargs)
 
     @functools.wraps(logging.Logger.debug)
-    def debug(self, message, *args, **kwargs):  # pylint: disable=missing-docstring
+    def debug(self, message, *args, **kwargs):
         return func_op(self.logger.debug, message, *args, **kwargs)
 
     @functools.wraps(logging.Logger.info)
-    def info(self, message, *args, **kwargs):  # pylint: disable=missing-docstring
+    def info(self, message, *args, **kwargs):
         return func_op(self.logger.info, message, *args, **kwargs)
 
     @functools.wraps(logging.Logger.warning)
-    def warning(self, message, *args, **kwargs):  # pylint: disable=missing-docstring
+    def warning(self, message, *args, **kwargs):
         return func_op(self.logger.warning, message, *args, **kwargs)
 
     @functools.wraps(logging.Logger.error)
-    def error(self, message, *args, **kwargs):  # pylint: disable=missing-docstring
+    def error(self, message, *args, **kwargs):
         return func_op(self.logger.error, message, *args, **kwargs)
 
     @functools.wraps(logging.Logger.critical)
-    def critical(self, message, *args, **kwargs):  # pylint: disable=missing-docstring
+    def critical(self, message, *args, **kwargs):
         return func_op(self.logger.critical, message, *args, **kwargs)
 
 
-class lazy_constant(Operation):  # pylint: disable=invalid-name
+class lazy_constant(Operation):
     """
     Operation that returns the output of `target` lazily.
 
@@ -288,7 +288,7 @@ class lazy_constant(Operation):  # pylint: disable=invalid-name
             raise ValueError("`target` must be callable")
         self.value = None
 
-    def _evaluate(self):  # pylint: disable=W0221
+    def _evaluate(self):
         if self.value is None:
             self.value = self.target()
         return self.value

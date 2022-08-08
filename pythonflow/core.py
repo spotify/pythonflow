@@ -1,5 +1,5 @@
-# pylint: disable=missing-docstring
-# pylint: enable=missing-docstring
+
+
 # Copyright 2017 Spotify AB
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -38,7 +38,7 @@ class Graph:
     _globals = threading.local()
 
     def __enter__(self):
-        assert getattr(self._globals, 'default_graph', None) is  None, \
+        assert getattr(self._globals, 'default_graph', None) is None, \
             "cannot have more than one default graph"
         Graph._globals.default_graph = self
         return self
@@ -47,7 +47,7 @@ class Graph:
         assert self._globals.default_graph is self
         Graph._globals.default_graph = None
 
-    def normalize_operation(self, operation):  # pylint:disable=W0621
+    def normalize_operation(self, operation):
         """
         Normalize an operation by resolving its name if necessary.
 
@@ -111,7 +111,7 @@ class Graph:
             raise ValueError("`context` must be a mapping.")
 
         operations = list(context)
-        for operation in operations:  # pylint:disable=W0621
+        for operation in operations:
             value = context.pop(operation)
             operation = self.normalize_operation(operation)
             if operation in context:
@@ -205,7 +205,7 @@ class EvaluationError(RuntimeError):
     """
 
 
-class Operation:  # pylint:disable=too-few-public-methods,too-many-instance-attributes
+class Operation:
     """
     Base class for operations.
 
@@ -357,7 +357,7 @@ class Operation:  # pylint:disable=too-few-public-methods,too-many-instance-attr
         except Exception as ex:  # pragma: no cover
             stack = []
             interactive = False
-            for frame in reversed(operation._stack):  # pylint: disable=protected-access
+            for frame in reversed(operation._stack):
                 # Do not capture any internal stack traces
                 if 'pythonflow' in frame.filename:
                     continue
@@ -387,7 +387,6 @@ class Operation:  # pylint:disable=too-few-public-methods,too-many-instance-attr
         for i in range(num):
             yield self[i]
 
-    # pylint: disable=
     def __getattr__(self, name):
         return getattr_(self, name, graph=self.graph)
 
@@ -507,10 +506,9 @@ class Operation:  # pylint:disable=too-few-public-methods,too-many-instance-attr
 
     def __call__(self, *args, **kwargs):
         return call(self, *args, **kwargs)
-    # pylint: enable=
 
 
-class func_op(Operation):  # pylint: disable=C0103,R0903
+class func_op(Operation):
     """
     Operation wrapper for stateless functions.
 
@@ -586,7 +584,6 @@ def control_dependencies(dependencies, graph=None):
     del graph.dependencies[-len(dependencies):]
 
 
-# pylint: disable=C0103
 abs_ = opmethod(builtins.abs)
 dict_ = opmethod(builtins.dict)
 help_ = opmethod(builtins.help)
@@ -698,4 +695,3 @@ truth = opmethod(operator.truth)
 xor = opmethod(operator.xor)
 
 import_ = opmethod(importlib.import_module)
-# pylint: enable=C0103

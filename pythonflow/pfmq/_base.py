@@ -1,5 +1,5 @@
-# pylint: disable=missing-docstring
-# pylint: enable=missing-docstring
+
+
 # Copyright 2018 Spotify AB
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,6 +22,7 @@ import zmq
 
 LOGGER = logging.getLogger(__name__)
 
+
 class Base:
     """
     Base class for running a ZeroMQ event loop in a background thread with a PAIR channel for
@@ -35,7 +36,7 @@ class Base:
     def __init__(self, start):
         self._thread = None
         self._cancel_address = f'inproc://{uuid.uuid4().hex}'
-        self._cancel_parent = zmq.Context.instance().socket(zmq.PAIR)  # pylint: disable=E1101
+        self._cancel_parent = zmq.Context.instance().socket(zmq.PAIR)
         self._cancel_parent.bind(self._cancel_address)
 
         if start:
