@@ -11,7 +11,7 @@ jobs:
   build:
     strategy:
       matrix:
-        python-version: ["3.9"]
+        python-version: ["3.9", "3.10"]
     name: Continuous Integration
     runs-on: "ubuntu-latest"
     steps:
